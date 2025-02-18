@@ -60,17 +60,17 @@ job_json = {
         ],
         "job_clusters": [
             {
-                "job_cluster_key": "aml_cluster",
+                "job_cluster_key": "PIV_cluster",
                 "new_cluster": {
-                    "spark_version": "15.4.x-cpu-ml-scala2.12",
-                    "spark_conf": {
-                        "spark.databricks.delta.formatCheck.enabled": "false"
-                        },
-                    "num_workers": 2,
+                "spark_version": "15.4.x-cpu-ml-scala2.12",
+                "spark_conf": {
+                    "spark.databricks.delta.formatCheck.enabled": "false"
+                    },
+                    "num_workers": 4,
                     "node_type_id": {"AWS": "i3.xlarge", "MSA": "Standard_D4ads_v5", "GCP": "n1-highmem-4"},
                     "custom_tags": {
-                        "usage": "solacc_automation",
-                        "group": "FSI"
+                    "usage": "solacc_automation",
+                    "group": "FSI_solacc_automation"
                     },
                 }
             }
