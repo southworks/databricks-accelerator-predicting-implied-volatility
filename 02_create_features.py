@@ -1,5 +1,8 @@
 # Databricks notebook source
-# MAGIC %pip install tensorflow==2.9.0 tf_quant_finance
+# MAGIC %pip install tensorflow
+# MAGIC %pip install tf-quant-finance
+# MAGIC %pip install scipy
+# MAGIC %pip install pyspark
 
 # COMMAND ----------
 
@@ -8,26 +11,22 @@ import tensorflow as tf
 import tf_quant_finance as tff
 from tf_quant_finance.math import *
 from tf_quant_finance.math.piecewise import *
-
-from tf_quant_finance.models import * 
+from tf_quant_finance.models import *
 from tf_quant_finance.models.generic_ito_process import *
-
 import time
-
 import scipy.optimize as optimize
-
 import pyspark.pandas as ps
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC # Step 1. Model Setup
-# MAGIC Let's start by defining a *toy model* (generic Ito Process), which will be function of specific model parameters. 
-# MAGIC 
+# MAGIC Let's start by defining a *toy model* (generic Ito Process), which will be function of specific model parameters.
+# MAGIC
 # MAGIC This model can be used to price call options with specific *maturities* and *strikes* and therefore implied vols (using blackscholes one to one mapping between prie and implied vol).
-# MAGIC 
+# MAGIC
 # MAGIC Our aim find the values of model paramters such that implied vols calculated from *this* model matches with implied vols obtained from market (this process is called calibration).
-# MAGIC 
+# MAGIC
 # MAGIC ## 1.1. Model Definition
 # MAGIC Creating a toy model definition by following [lognormal](https://en.wikipedia.org/wiki/Log-normal_distributio) fx, [vasicek](https://en.wikipedia.org/wiki/Vasicek_model) ir & [local vol](https://en.wikipedia.org/wiki/Local_volatility) fx_vol.
 
@@ -40,7 +39,7 @@ class TimeSeries:
     self.values = values
 
   def apply(self, input):
-    res = self.values[-1] 
+    res = self.values[-1]
     for idx in range(len(self.jump_locations)):
       curr_jump_loc = self.jump_locations[idx]
       if input <= curr_jump_loc:
@@ -65,8 +64,8 @@ class BlackScholesWithVasicelAndLocalVol(GenericItoProcess):
                step_size,
                # numerical accuracy specifics
                dtype=None):
-    
-    # basic variables from parent class 'GenericItoProcess' 
+
+    # basic variables from parent class 'GenericItoProcess'
     self._name = 'BlackScholesWithVasicelAndLocalVol'
     self._dim = 4
     self._dtype = dtype
@@ -95,7 +94,7 @@ class BlackScholesWithVasicelAndLocalVol(GenericItoProcess):
     self.step_size = step_size
 
     # correlation matrix
-    self.cholesky = tf.linalg.cholesky(corr_matrix);   
+    self.cholesky = tf.linalg.cholesky(corr_matrix);
 
   def _volatility_fn(self, t, x):
 
@@ -108,14 +107,14 @@ class BlackScholesWithVasicelAndLocalVol(GenericItoProcess):
     vol_vol_fx = zeros
 
     vol_array = [ vol_rate_1, vol_rate_2,vol_vol_fx, vol_fx]
-    
+
     columns = [];
     for col in range(self._dim):
       current_columns = []
       for row in range(self._dim):
         current_columns.append(self.cholesky[row][col] * vol_array[row])
       columns.append(tf.stack(current_columns, -1))
-      
+
     result_matrix = tf.stack(columns, -1)
     return result_matrix
 
@@ -124,17 +123,17 @@ class BlackScholesWithVasicelAndLocalVol(GenericItoProcess):
     rate_factor_2 = x[..., 1]
     vol_fx = x[..., 2]
     log_fx = x[..., 3]
-    
+
     fwd_rate_1_t = self.fwd_rate_1.apply(t)
     fwd_rate_2_t = self.fwd_rate_2.apply(t)
 
     rate_1 = fwd_rate_1_t + rate_factor_1
     rate_2 = fwd_rate_2_t + rate_factor_2
-    
+
     lv_for_current_t = self.local_vol_fx.apply(t)
     lv_func = PiecewiseConstantFunc(jump_locations=self.log_jump_strikes, values=lv_for_current_t, dtype=dtype)
     new_vol_fx = lv_func(log_fx)
-    
+
     self.old_vol = new_vol_fx
 
     drift_rate_1 = self.kappa_rate_1.apply(t) * (self.theta_rate_1.apply(t) - rate_factor_1)
@@ -143,13 +142,13 @@ class BlackScholesWithVasicelAndLocalVol(GenericItoProcess):
     drift_fx = (rate_1 - rate_2) - 0.5 * vol_fx * vol_fx
 
     drift = tf.stack([ drift_rate_1, drift_rate_2, drift_vol_fx, drift_fx ], -1)
-    return drift 
+    return drift
 
   def implied_vol(self,
                   option_strikes,
                   option_maturities,
                   num_samples):
-    
+
     paths = self.sample_paths(
           option_maturities,
           num_samples=num_samples,
@@ -165,15 +164,15 @@ class BlackScholesWithVasicelAndLocalVol(GenericItoProcess):
       curr_paths = paths[:,maturity_idx]
       curr_fwd = self.fx_fwd.apply(curr_maturity)
       df = tf.exp(-curr_paths[:,0]*curr_maturity)
-      df_mean = tf.math.reduce_mean(df) 
+      df_mean = tf.math.reduce_mean(df)
       fx = curr_fwd * tf.exp(curr_paths[:,3])
-      
+
       prices = []
       for strike_idx in range(number_of_strikes):
         curr_strike = option_strikes[strike_idx]
         price = tf.math.reduce_mean(tf.maximum(tf.constant(0.0, dtype=self._dtype), (fx - curr_strike)))
         prices.append(price)
-  
+
       implied_vols_for_curr_expiry = tff.black_scholes.implied_vol(
           prices=prices,
           strikes=option_strikes,
@@ -181,14 +180,14 @@ class BlackScholesWithVasicelAndLocalVol(GenericItoProcess):
           forwards=[curr_fwd] * number_of_strikes,
           discount_factors= [df_mean] * number_of_strikes,
           is_call_options=True)
-    
+
       implied_vols_for_curr_expiry_parsed = []
       for option_idx in range(0, len(implied_vols_for_curr_expiry)):
-        curr_implied_vol = implied_vols_for_curr_expiry[option_idx] 
+        curr_implied_vol = implied_vols_for_curr_expiry[option_idx]
         if np.isnan(curr_implied_vol):
           curr_implied_vol = min(0, prices[option_idx].numpy() - max(curr_fwd - option_strikes[option_idx], 0))
         implied_vols_for_curr_expiry_parsed.append(curr_implied_vol)
-  
+
       implied_vols.append(implied_vols_for_curr_expiry_parsed)
 
     return implied_vols
@@ -197,7 +196,7 @@ class BlackScholesWithVasicelAndLocalVol(GenericItoProcess):
 
 # MAGIC %md
 # MAGIC ## 1.2. Model Initialization
-# MAGIC 
+# MAGIC
 # MAGIC Initialize the model with dummy values of model parameters
 
 # COMMAND ----------
@@ -244,9 +243,9 @@ model = BlackScholesWithVasicelAndLocalVol(
 
 # MAGIC %md
 # MAGIC ## 1.3. Model Calibration
-# MAGIC 
+# MAGIC
 # MAGIC To keep things simple let's just try to find the *lv_surface* that will map closest match to our target i.e implied_vol from market.
-# MAGIC 
+# MAGIC
 # MAGIC Moment of truth: Given the input dimenion of objective function is 50 ('local_vol_fx' surface of size 10x5 i.e 10 maturities by 5 strikes) and similarly output dimension is 50 as well, below cell execution will take forever. (if one really wants to test the execution, can reduce *option_maturities* to size of 1 array)
 
 # COMMAND ----------
@@ -291,7 +290,7 @@ lv_surface_init_guess = np.array([[0.6, 0.36, 0.246, 0.546, 0.7978],
                          [0.576, 0.473, 0.253, 0.556, 0.7123],
                          [0.56, 0.346, 0.2252, 0.786, 0.867],
                          [0.786, 0.354, 0.2691, 0.634, 0.7545]])
-                       
+
 lv_surface_init_guess = lv_surface_init_guess[:number_of_maturities]
 
 # Let's define our objective function
@@ -305,7 +304,7 @@ def objective_fn(lv_surface_guess_flatened):
 
 
 roots = optimize.least_squares(objective_fn,
-                      x0= lv_surface_init_guess.flatten(), 
+                      x0= lv_surface_init_guess.flatten(),
                       ftol=0.05,
                       xtol=None,
                       gtol=None,)
@@ -320,11 +319,11 @@ durr_ = end_time_ - start_time_
 
 # MAGIC %md
 # MAGIC # Step 2: Use Machine learning to reduce calibration time
-# MAGIC 
+# MAGIC
 # MAGIC Now we should try to reduce calibration time complexity using machine learning. The major bottleneck in above calibration is repeated calls to *model.implied_vol* function inside optimizer which is quite heavy due to Monte-Carlo Simulation.
-# MAGIC 
+# MAGIC
 # MAGIC If somehow we can learn that function (which is mapping local_vol model parameter to implied vol), then we can use that function underneath the optimizer as replacement and it would be many fold faster!
-# MAGIC 
+# MAGIC
 # MAGIC ## 2.1. Training Data Generation
 # MAGIC First step is generate training dataset
 
@@ -380,12 +379,12 @@ assert len(schema_) == features.shape[1] == labels.shape[1], 'There is a mismatc
 
 # COMMAND ----------
 
-# MAGIC %md 
-# MAGIC 
+# MAGIC %md
+# MAGIC
 # MAGIC ## 2.2. Convert the features and labels into Koalas DataFrames
-# MAGIC 
+# MAGIC
 # MAGIC Koalas provides a drop-in replacement for pandas. Commonly used by data scientists, pandas is a Python package that provides easy-to-use data structures and data analysis tools for the Python programming language. However, pandas does not scale out to big data. Koalas fills this gap by providing pandas equivalent APIs that work on Apache Spark. Koalas is useful not only for pandas users but also PySpark users, because Koalas supports many tasks that are difficult to do with PySpark, for example plotting data directly from a PySpark DataFrame.
-# MAGIC 
+# MAGIC
 # MAGIC https://docs.databricks.com/languages/koalas.html
 
 # COMMAND ----------
@@ -401,16 +400,16 @@ labels_ps = ps.DataFrame(labels, columns=schema_).reset_index()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## Why use Databricks Feature Store?
 # MAGIC Databricks Feature Store is fully integrated with other components of Databricks.
-# MAGIC 
+# MAGIC
 # MAGIC - **Lineage**. When you create a feature table with Databricks Feature Store, the data sources used to create the feature table are saved and accessible. For each feature in a feature table, you can also access the models, notebooks, jobs, and endpoints that use the feature.
-# MAGIC 
+# MAGIC
 # MAGIC - **Discoverability**. The Databricks Feature Store UI, accessible from the Databricks workspace, lets you browse and search for existing features.
-# MAGIC 
+# MAGIC
 # MAGIC - **Integration** with model scoring and serving. When you use features from Databricks Feature Store to train a model, the model is packaged with feature metadata. When you use the model for batch scoring or online inference, it automatically retrieves features from Feature Store. The caller does not need to know about them or include logic to look up or join features to score new data. This makes model deployment and updates much easier.
-# MAGIC 
+# MAGIC
 # MAGIC https://docs.databricks.com/applications/machine-learning/feature-store/index.html
 
 # COMMAND ----------
@@ -420,10 +419,10 @@ fs = feature_store.FeatureStoreClient()
 
 # COMMAND ----------
 
-# MAGIC %sql 
-# MAGIC 
+# MAGIC %sql
+# MAGIC
 # MAGIC -- Create the Feature Store database
-# MAGIC CREATE DATABASE IF NOT EXISTS feature_store_implied_volatility; 
+# MAGIC CREATE DATABASE IF NOT EXISTS feature_store_implied_volatility;
 
 # COMMAND ----------
 
@@ -444,21 +443,21 @@ fs.create_table(
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## 3.1. Display the generated data and check the distribution
 
 # COMMAND ----------
 
-# MAGIC %sql 
-# MAGIC 
+# MAGIC %sql
+# MAGIC
 # MAGIC use feature_store_implied_volatility
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ### 3.1.1. Visualise the generated data and explore
-# MAGIC 
+# MAGIC
 # MAGIC Databricks Notebooks have built-in dashboarding capabilities (which we can observe below). We can very quickly visualise the features and labels that we just saved into the Databricks Feature Store. Below we have the scattered plot of various strike levels for the same maturity (of the generated data). The chart even offers a LOESS regression that can give us even more information about the distribution of the residuals of the generated data.
 
 # COMMAND ----------
@@ -468,9 +467,9 @@ display(spark.sql('select * from labels'))
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ### 3.1.2. Data Profiling
-# MAGIC 
+# MAGIC
 # MAGIC Databricks Notebooks have built-in data profiling features. In the cell below, we can observe a lot of statistical information for the newly generated features and labels, without having to use third-party tools or write additional code.
 
 # COMMAND ----------
@@ -480,9 +479,9 @@ display(spark.sql('select * from labels'))
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # Step 4: Check the generated data for statistical issues using R
-# MAGIC 
+# MAGIC
 # MAGIC We will use R libraries to automatically test the newly generated data for heteroskedasticity.
 
 # COMMAND ----------
@@ -492,7 +491,7 @@ features_ps.iloc[:, 1:].to_spark().createOrReplaceTempView('IVfeatures_view')
 # COMMAND ----------
 
 # MAGIC %r
-# MAGIC 
+# MAGIC
 # MAGIC library(SparkR)
 # MAGIC sql("REFRESH TABLE IVfeatures_view")
 # MAGIC features_df_r <- sql("SELECT * FROM IVfeatures_view")
@@ -500,13 +499,13 @@ features_ps.iloc[:, 1:].to_spark().createOrReplaceTempView('IVfeatures_view')
 # COMMAND ----------
 
 # MAGIC %r
-# MAGIC 
+# MAGIC
 # MAGIC head(features_df_r)
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
-# MAGIC # Step 5: Train ML model for each of the labels 
-# MAGIC 
+# MAGIC
+# MAGIC # Step 5: Train ML model for each of the labels
+# MAGIC
 # MAGIC See **Implied Volatility Prediction - 2. ML**
