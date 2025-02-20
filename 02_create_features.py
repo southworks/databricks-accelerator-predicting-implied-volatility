@@ -7,6 +7,7 @@
 # MAGIC %pip install numpy==1.26.4
 # MAGIC %pip install scipy==1.11.1
 # MAGIC %pip install pyspark
+# MAGIC %pip install protobuf==3.20.3
 
 # COMMAND ----------
 
