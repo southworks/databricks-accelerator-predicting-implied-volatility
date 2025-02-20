@@ -1,4 +1,7 @@
 # Databricks notebook source
+
+# COMMAND ----------
+
 # MAGIC %pip install tensorflow
 # MAGIC %pip install tf-quant-finance
 # MAGIC %pip install scipy
