@@ -3,10 +3,10 @@
 # COMMAND ----------
 
 # MAGIC %pip install tensorflow==2.18.0
-# MAGIC %pip install tf-quant-finance
+# MAGIC %pip install tf-quant-finance==0.0.1.dev34
 # MAGIC %pip install numpy==1.26.4
-# MAGIC %pip install scipy==1.11.1
-# MAGIC %pip install pyspark
+# MAGIC %pip install scipy==1.11.4
+# MAGIC %pip install pyspark==3.5.0
 # MAGIC %pip install protobuf==3.20.3
 
 # COMMAND ----------
