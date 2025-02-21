@@ -35,6 +35,8 @@ resource jobCreation 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       if [ -z "$repo_info" ]; then
           echo "Repository does not exist. Creating..."
           databricks repos create https://github.com/southworks/${ACCELERATOR_REPO_NAME} gitHub
+          repo_id=$(databricks repos get "${repo_path}" | jq -r '.id')
+          databricks repos update ${repo_id} --branch ${BRANCH_NAME}
       else
           echo "Repository exists. Updating to latest main branch..."
           repo_id=$(databricks repos get "${repo_path}" | jq -r '.id')
