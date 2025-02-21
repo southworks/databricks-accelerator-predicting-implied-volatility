@@ -15,7 +15,7 @@
       "task_key": "Match",
       "description": "Matches orders with user sessions",
       "notebook_task": {
-        "notebook_path": "/Users/<username>/predicting-implied-volatility/RUNME"
+        "notebook_path": "/Users/<username>/databricks-accelerator-predicting-implied-volatility/RUNME"
       },
       "new_cluster": {
         "num_workers": 1,
