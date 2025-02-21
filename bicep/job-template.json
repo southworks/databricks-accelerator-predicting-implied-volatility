@@ -1,0 +1,38 @@
+{
+  "run_name": "run notebook from cli",
+  "timeout_seconds": 1800,
+  "health": {
+    "rules": [
+      {
+        "metric": "RUN_DURATION_SECONDS",
+        "op": "GREATER_THAN",
+        "value": 10
+      }
+    ]
+  },
+  "tasks": [
+    {
+      "task_key": "Match",
+      "description": "Matches orders with user sessions",
+      "notebook_task": {
+        "notebook_path": "/Users/<username>/predicting-implied-volatility/RUNME"
+      },
+      "new_cluster": {
+        "num_workers": 1,
+        "node_type_id": "Standard_D4ads_v5",
+        "runtime_engine": "PHOTON",
+        "spark_conf": {
+          "spark.speculation": true
+        },
+        "spark_env_vars": {
+          "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+        },
+        "spark_version": "15.4.x-cpu-ml-scala2.12"
+      },
+      "timeout_seconds": 1800
+    }
+  ],
+  "queue": {
+    "enabled": true
+  }
+}

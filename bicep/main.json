@@ -1,0 +1,183 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.33.93.31351",
+      "templateHash": "9440993230386903167"
+    }
+  },
+  "parameters": {
+    "databricksResourceName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the Azure Databricks workspace to create."
+      }
+    }
+  },
+  "variables": {
+    "acceleratorRepoName": "databricks-accelerator-predicting-implied-volatility",
+    "randomString": "[uniqueString(resourceGroup().id, parameters('databricksResourceName'), variables('acceleratorRepoName'))]",
+    "managedResourceGroupName": "[format('databricks-rg-{0}-{1}', parameters('databricksResourceName'), variables('randomString'))]",
+    "location": "[resourceGroup().location]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[variables('randomString')]",
+      "location": "[variables('location')]"
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(variables('randomString'))]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('randomString')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('randomString'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deploymentScripts",
+      "apiVersion": "2023-08-01",
+      "name": "[format('create-or-update-databricks-{0}', variables('randomString'))]",
+      "location": "[variables('location')]",
+      "kind": "AzurePowerShell",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('randomString')))]": {}
+        }
+      },
+      "properties": {
+        "azPowerShellVersion": "9.0",
+        "arguments": "[format('-resourceName {0} -resourceGroupName  {1} -location {2} -sku premium -managedResourceGroupName {3}', parameters('databricksResourceName'), resourceGroup().name, variables('location'), variables('managedResourceGroupName'))]",
+        "scriptContent": "      param([string] $resourceName,\r\n        [string] $resourceGroupName,\r\n        [string] $location,\r\n        [string] $sku,\r\n        [string] $managedResourceGroupName)\r\n      # Check if workspace exists\r\n      $resource = Get-AzDatabricksWorkspace -Name $resourceName -ResourceGroupName $resourceGroupName | Select-Object -Property ResourceId\r\n      if (-not $resource) {\r\n        # Create new workspace\r\n        Write-Output \"Creating new Databricks workspace: $resourceName\"\r\n        New-AzDatabricksWorkspace -Name $resourceName `\r\n          -ResourceGroupName $resourceGroupName `\r\n          -Location $location `\r\n          -ManagedResourceGroupName $managedResourceGroupName `\r\n          -Sku $sku\r\n        # Wait for provisioning to complete\r\n        $retryCount = 0\r\n        do {\r\n          Start-Sleep -Seconds 15\r\n          $provisioningState = (Get-AzDatabricksWorkspace -Name $resourceName -ResourceGroupName $resourceGroupName).ProvisioningState\r\n          Write-Output \"Current state: $provisioningState (attempt $retryCount)\"\r\n          $retryCount++\r\n        } while ($provisioningState -ne 'Succeeded' -and $retryCount -le 40)\r\n      }\r\n      # Output the workspace ID to signal completion\r\n      $workspace = Get-AzDatabricksWorkspace -Name $resourceName -ResourceGroupName $resourceGroupName\r\n      echo \"{\\\"WorkspaceId\\\": \\\"$workspace.Id\\\", \\\"Exists\\\": \\\"True\"}\" > $AZ_SCRIPTS_OUTPUT_PATH\r\n    ",
+        "timeout": "PT1H",
+        "cleanupPreference": "OnSuccess",
+        "retentionInterval": "PT2H"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('randomString'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "[format('databricks-module-{0}', variables('randomString'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "acceleratorRepoName": {
+            "value": "[variables('acceleratorRepoName')]"
+          },
+          "databricksResourceName": {
+            "value": "[parameters('databricksResourceName')]"
+          },
+          "location": {
+            "value": "[variables('location')]"
+          },
+          "managedIdentityName": {
+            "value": "[variables('randomString')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.33.93.31351",
+              "templateHash": "2779114714101507158"
+            }
+          },
+          "parameters": {
+            "acceleratorRepoName": {
+              "type": "string"
+            },
+            "databricksResourceName": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "managedIdentityName": {
+              "type": "string"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Resources/deploymentScripts",
+              "apiVersion": "2023-08-01",
+              "name": "[format('job-creation-{0}', parameters('acceleratorRepoName'))]",
+              "location": "[parameters('location')]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName')))]": {}
+                }
+              },
+              "kind": "AzureCLI",
+              "properties": {
+                "azCliVersion": "2.9.1",
+                "scriptContent": "      set -e\r\n      curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh\r\n\r\n      repo_path=\"/Users/${ARM_CLIENT_ID}/${ACCELERATOR_REPO_NAME}\"\r\n      repo_info=$(databricks repos get \"${repo_path}\" 2>/dev/null || true)\r\n\r\n      # Check if the repo exists; if not, create it. If it exists, update it.\r\n      if [ -z \"$repo_info\" ]; then\r\n          echo \"Repository does not exist. Creating...\"\r\n          databricks repos create https://github.com/southworks/${ACCELERATOR_REPO_NAME} gitHub\r\n      else\r\n          echo \"Repository exists. Updating to latest main branch...\"\r\n          repo_id=$(databricks repos get \"${repo_path}\" | jq -r '.id')\r\n          databricks repos update ${repo_id} --branch main\r\n      fi\r\n      databricks workspace export ${repo_path}/bicep/job-template.json > job-template.json\r\n      notebook_path=\"${repo_path}/RUNME\"\r\n      jq \".tasks[0].notebook_task.notebook_path = \\\"${notebook_path}\\\"\" job-template.json > job.json\r\n      job_page_url=$(databricks jobs submit --json @./job.json | jq -r '.run_page_url')\r\n      echo \"{\\\"job_page_url\\\": \\\"$job_page_url\\\"}\" > $AZ_SCRIPTS_OUTPUT_PATH\r\n      ",
+                "environmentVariables": [
+                  {
+                    "name": "DATABRICKS_AZURE_RESOURCE_ID",
+                    "value": "[resourceId('Microsoft.Databricks/workspaces', parameters('databricksResourceName'))]"
+                  },
+                  {
+                    "name": "ARM_CLIENT_ID",
+                    "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName')), '2023-01-31').clientId]"
+                  },
+                  {
+                    "name": "ARM_USE_MSI",
+                    "value": "true"
+                  },
+                  {
+                    "name": "ACCELERATOR_REPO_NAME",
+                    "value": "[parameters('acceleratorRepoName')]"
+                  }
+                ],
+                "timeout": "PT1H",
+                "cleanupPreference": "OnSuccess",
+                "retentionInterval": "PT2H"
+              }
+            }
+          ],
+          "outputs": {
+            "databricksWorkspaceUrl": {
+              "type": "string",
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.Databricks/workspaces', parameters('databricksResourceName')), '2024-05-01').workspaceUrl)]"
+            },
+            "databricksJobUrl": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Resources/deploymentScripts', format('job-creation-{0}', parameters('acceleratorRepoName'))), '2023-08-01').outputs.job_page_url]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deploymentScripts', format('create-or-update-databricks-{0}', variables('randomString')))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "databricksWorkspaceUrl": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', format('databricks-module-{0}', variables('randomString'))), '2022-09-01').outputs.databricksWorkspaceUrl.value]"
+    },
+    "databricksJobUrl": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', format('databricks-module-{0}', variables('randomString'))), '2022-09-01').outputs.databricksJobUrl.value]"
+    }
+  }
+}
