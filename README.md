@@ -30,6 +30,17 @@ You can deploy the accelerator to Azure using the button below:
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fsouthworks%2Fdatabricks-accelerator-predicting-implied-volatility%2Fmain%2Fbicep%2Fmain.json)
 
+## How to run locally
+
+1. Install the [Databricks](https://marketplace.visualstudio.com/items?itemName=databricks.databricks) extension to VS Code
+1. Create an instance of Databricks Service in the Azure portal
+1. [Follow these steps](https://docs.databricks.com/en/dev-tools/vscode-ext/configure.html) to configure the extension with the new Databricks Service
+1. Use the "Run file as workflow" button to run the notebook you want to test locally
+
+![Databricks extension run file as workflow button](documents/databricksRunFileAsWorkflow.png)
+
+_________
+
 &copy; 2022 Databricks, Inc. All rights reserved. The source in this notebook is provided subject to the Databricks License [https://databricks.com/db-license-source].  All included or referenced third party libraries are subject to the licenses set forth below.
 
 | library                                | description             | license    | source                                              |
