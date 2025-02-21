@@ -22,11 +22,11 @@ import pyspark.pandas as ps
 
 # MAGIC %md
 # MAGIC # Step 1. Model Setup
-# MAGIC Let's start by defining a *toy model* (generic Ito Process), which will be function of specific model parameters.
+# MAGIC Let's start by defining a *toy model* (generic Ito Process), which will be a function of specific model parameters.
 # MAGIC
 # MAGIC This model can be used to price call options with specific *maturities* and *strikes* and therefore implied vols (using blackscholes one to one mapping between prie and implied vol).
 # MAGIC
-# MAGIC Our aim find the values of model paramters such that implied vols calculated from *this* model matches with implied vols obtained from market (this process is called calibration).
+# MAGIC Our aim is to find the values of model parameters such that implied vols calculated from *this* model match with implied vols obtained from market (this process is called calibration).
 # MAGIC
 # MAGIC ## 1.1. Model Definition
 # MAGIC Creating a toy model definition by following [lognormal](https://en.wikipedia.org/wiki/Log-normal_distributio) fx, [vasicek](https://en.wikipedia.org/wiki/Vasicek_model) ir & [local vol](https://en.wikipedia.org/wiki/Local_volatility) fx_vol.
@@ -51,17 +51,17 @@ class BlackScholesWithVasicelAndLocalVol(GenericItoProcess):
   """Toy Model for lognormal fx, vasicek ir & local vol fx"""
 
   def __init__(self,
-               # rate 1 model paramters
+               # rate 1 model parameters
                kappa_rate_1, theta_rate_1, vol_rate_1, fwd_rate_1,
-               # rate 2 model paramters
+               # rate 2 model parameters
                kappa_rate_2, theta_rate_2, vol_rate_2, fwd_rate_2,
-               # fx vol model paramters
+               # fx vol model parameters
                jump_strikes, local_vol_fx,
-               # fx model paramters
+               # fx model parameters
                fx_fwd,
                # correlation matrix
                corr_matrix,
-               # descretiozation jump dt
+               # discretization jump dt
                step_size,
                # numerical accuracy specifics
                dtype=None):
@@ -71,27 +71,27 @@ class BlackScholesWithVasicelAndLocalVol(GenericItoProcess):
     self._dim = 4
     self._dtype = dtype
 
-    # rate 1 model paramters
+    # rate 1 model parameters
     self.kappa_rate_1 = kappa_rate_1;
     self.theta_rate_1 = theta_rate_1;
     self.vol_rate_1 = vol_rate_1;
     self.fwd_rate_1 = fwd_rate_1;
 
-    # rate 2 model paramters
+    # rate 2 model parameters
     self.kappa_rate_2 = kappa_rate_2;
     self.theta_rate_2 = theta_rate_2;
     self.vol_rate_2 = vol_rate_2;
     self.fwd_rate_2 = fwd_rate_2;
 
-    # fx vol model paramters
+    # fx vol model parameters
     self.jump_strikes = jump_strikes
     self.log_jump_strikes = tf.math.log(jump_strikes)
     self.local_vol_fx = local_vol_fx;
 
-    # fx model paramters
+    # fx model parameters
     self.fx_fwd = fx_fwd
 
-    # descretiozation jump dt
+    # discretization jump dt
     self.step_size = step_size
 
     # correlation matrix

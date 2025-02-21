@@ -14,7 +14,7 @@
 # MAGIC ## *A deep neural network perspective on pricing and calibration in (rough) volatility models*
 # MAGIC
 # MAGIC
-# MAGIC The aim of this paper is the build a neural networks that is an off-line approximation of complex pricing functions, which are difficult to represent or time-consuming to evaluate by other means. In turn this solves the calibration bottleneck posed by a slow pricing of derivative contracts.
+# MAGIC The aim of this paper is to build a neural networks that is an off-line approximation of complex pricing functions, which are difficult to represent or time-consuming to evaluate by other means. In turn this solves the calibration bottleneck posed by a slow pricing of derivative contracts.
 # MAGIC
 # MAGIC <img src="https://bbb-databricks-demo-assets.s3.amazonaws.com/Screenshot+2022-07-24+at+5.09.41+PM.png" style="float: left" width="750px" />
 # MAGIC
@@ -30,7 +30,7 @@
 # MAGIC 3. **Collaboration between R and python**: After generating the synthetic data, we need to test the quality of the data and identify potential statistical issues, such as heteroskedasticity, as we will use this data to train regression models. For this purpose, we will use R packages, as R is specifically built for performing statistical tasks. This will visualize the simplicity of using python and R in the same [Interactive Databricks Notebook](https://databricks.com/product/collaborative-notebooks), and utilizing the strengths of each language (and supported libraries), without having to re-write R libraries or provision additional Notebooks or clusters.
 # MAGIC     - We will also use the built-in dashboarding capabilities of the Databricks Notebook to visualize the pair-plot of the generated data, and
 # MAGIC     - The automated *Data Profile* feature of the Databricks Notebooks will help us observe the distribution and overall quality of the generated data.
-# MAGIC 4. **MLOps - ML experiments and deployment**: This paper requires training many models at the same time. Keeping track of each model (hyper-param tunning, computation time, feature selection, and many others) can become very ineffective when handling so many models simultaneously. That is where [MLFlow](https://databricks.com/product/managed-mlflow)'s Experiments tracking comes to help and streamline model development (see Notebook *Implied Volatility Prediction - 2. ML*).
+# MAGIC 4. **MLOps - ML experiments and deployment**: This paper requires training many models at the same time. Keeping track of each model (hyper-param tuning, computation time, feature selection, and many others) can become very ineffective when handling so many models simultaneously. That is where [MLFlow](https://databricks.com/product/managed-mlflow)'s Experiments tracking comes to help and streamline model development (see Notebook *Implied Volatility Prediction - 2. ML*).
 # MAGIC 5. **Productionalization**: Finally, we use [Databricks Workflows](https://databricks.com/blog/2022/05/10/introducing-databricks-workflows.html) to orchestrate the end-to-end execution and deployment. Databricks Workflows is the fully-managed orchestration service for all your data, analytics, and AI needs. Tight integration with the underlying lakehouse platform ensures you create and run reliable production workloads on any cloud while providing deep and centralized monitoring with simplicity for end-users (see Notebook *Implied Volatility Prediction - 4. Productionalizing*).
 
 # COMMAND ----------
