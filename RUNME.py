@@ -1,9 +1,9 @@
 # Databricks notebook source
 # MAGIC %md This notebook sets up the companion cluster(s) to run the solution accelerator. It also creates the Workflow to create a Workflow DAG and illustrate the order of execution. Feel free to interactively run notebooks with the cluster or to run the Workflow to see how this solution accelerator executes. Happy exploring!
-# MAGIC 
+# MAGIC
 # MAGIC The pipelines, workflows and clusters created in this script are user-specific, so you can alter the workflow and cluster via UI without affecting other users. Running this script again after modification resets them.
-# MAGIC 
-# MAGIC **Note**: If the job execution fails, please confirm that you have set up other environment dependencies as specified in the accelerator notebooks. Accelerators sometimes require the user to set up additional cloud infra or data access, for instance. 
+# MAGIC
+# MAGIC **Note**: If the job execution fails, please confirm that you have set up other environment dependencies as specified in the accelerator notebooks. Accelerators sometimes require the user to set up additional cloud infra or data access, for instance.
 
 # COMMAND ----------
 
@@ -62,7 +62,7 @@ job_json = {
             {
                 "job_cluster_key": "PIV_cluster",
                 "new_cluster": {
-                    "spark_version": '11.0.x-gpu-ml-scala2.12',
+                    "spark_version": '10.4.x-gpu-ml-scala2.12',
                 "spark_conf": {
                     "spark.databricks.delta.formatCheck.enabled": "false"
                     },
