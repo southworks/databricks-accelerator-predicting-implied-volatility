@@ -8,7 +8,7 @@
 # COMMAND ----------
 
 # DBTITLE 0,Install util packages
-# MAGIC %pip install git+https://github.com/databricks-academy/dbacademy-rest git+https://github.com/databricks-academy/dbacademy-gems git+https://github.com/databricks-industry-solutions/notebook-solution-companion
+# MAGIC %pip install git+https://github.com/databricks-academy/dbacademy git+https://github.com/southworks/databricks-notebook-solution-companion.git --quiet --disable-pip-version-check
 
 # COMMAND ----------
 
