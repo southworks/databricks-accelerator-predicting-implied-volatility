@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.33.93.31351",
-      "templateHash": "9440993230386903167"
+      "templateHash": "9471475134020444163"
     }
   },
   "parameters": {
@@ -96,7 +96,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.33.93.31351",
-              "templateHash": "2779114714101507158"
+              "templateHash": "577707022659674878"
             }
           },
           "parameters": {
@@ -128,7 +128,7 @@
               "kind": "AzureCLI",
               "properties": {
                 "azCliVersion": "2.9.1",
-                "scriptContent": "      set -e\r\n      curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh\r\n\r\n      repo_path=\"/Users/${ARM_CLIENT_ID}/${ACCELERATOR_REPO_NAME}\"\r\n      repo_info=$(databricks repos get \"${repo_path}\" 2>/dev/null || true)\r\n\r\n      # Check if the repo exists; if not, create it. If it exists, update it.\r\n      if [ -z \"$repo_info\" ]; then\r\n          echo \"Repository does not exist. Creating...\"\r\n          databricks repos create https://github.com/southworks/${ACCELERATOR_REPO_NAME} gitHub\r\n      else\r\n          echo \"Repository exists. Updating to latest main branch...\"\r\n          repo_id=$(databricks repos get \"${repo_path}\" | jq -r '.id')\r\n          databricks repos update ${repo_id} --branch main\r\n      fi\r\n      databricks workspace export ${repo_path}/bicep/job-template.json > job-template.json\r\n      notebook_path=\"${repo_path}/RUNME\"\r\n      jq \".tasks[0].notebook_task.notebook_path = \\\"${notebook_path}\\\"\" job-template.json > job.json\r\n      job_page_url=$(databricks jobs submit --json @./job.json | jq -r '.run_page_url')\r\n      echo \"{\\\"job_page_url\\\": \\\"$job_page_url\\\"}\" > $AZ_SCRIPTS_OUTPUT_PATH\r\n      ",
+                "scriptContent": "      set -e\r\n      curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh\r\n\r\n      repo_path=\"/Users/${ARM_CLIENT_ID}/${ACCELERATOR_REPO_NAME}\"\r\n      repo_info=$(databricks repos get \"${repo_path}\" 2>/dev/null || true)\r\n\r\n      # Check if the repo exists; if not, create it. If it exists, update it.\r\n      if [ -z \"$repo_info\" ]; then\r\n          echo \"Repository does not exist. Creating...\"\r\n          databricks repos create https://github.com/southworks/${ACCELERATOR_REPO_NAME} gitHub\r\n      else\r\n          echo \"Repository exists. Updating to latest main branch...\"\r\n          repo_id=$(databricks repos get \"${repo_path}\" | jq -r '.id')\r\n          databricks repos update ${repo_id} --branch ${BRANCH_NAME}\r\n      fi\r\n      databricks workspace export ${repo_path}/bicep/job-template.json > job-template.json\r\n      notebook_path=\"${repo_path}/RUNME\"\r\n      jq \".tasks[0].notebook_task.notebook_path = \\\"${notebook_path}\\\"\" job-template.json > job.json\r\n      job_page_url=$(databricks jobs submit --json @./job.json | jq -r '.run_page_url')\r\n      echo \"{\\\"job_page_url\\\": \\\"$job_page_url\\\"}\" > $AZ_SCRIPTS_OUTPUT_PATH\r\n      ",
                 "environmentVariables": [
                   {
                     "name": "DATABRICKS_AZURE_RESOURCE_ID",
@@ -145,6 +145,10 @@
                   {
                     "name": "ACCELERATOR_REPO_NAME",
                     "value": "[parameters('acceleratorRepoName')]"
+                  },
+                  {
+                    "name": "BRANCH_NAME",
+                    "value": "107247-Create-Bicep-file-and-add-Deploy-to-Azure-button"
                   }
                 ],
                 "timeout": "PT1H",

@@ -38,7 +38,7 @@ resource jobCreation 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       else
           echo "Repository exists. Updating to latest main branch..."
           repo_id=$(databricks repos get "${repo_path}" | jq -r '.id')
-          databricks repos update ${repo_id} --branch main
+          databricks repos update ${repo_id} --branch ${BRANCH_NAME}
       fi
       databricks workspace export ${repo_path}/bicep/job-template.json > job-template.json
       notebook_path="${repo_path}/RUNME"
@@ -62,6 +62,10 @@ resource jobCreation 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       {
         name: 'ACCELERATOR_REPO_NAME'
         value: acceleratorRepoName
+      }
+      {
+        name: 'BRANCH_NAME'
+        value: '107247-Create-Bicep-file-and-add-Deploy-to-Azure-button'
       }
     ]
     timeout: 'PT1H'
