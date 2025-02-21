@@ -18,14 +18,8 @@ import pandas as pd
 
 # COMMAND ----------
 
-fs = feature_store.FeatureStoreClient()
-features_df = fs.read_table('feature_store_implied_volatility.features')
-labels_df = fs.read_table('feature_store_implied_volatility.labels')
-
-# COMMAND ----------
-
-features_df = features_df.toPandas()
-labels_df =  labels_df.toPandas()
+features_df = spark.table("feature_store_implied_volatility.features").toPandas()
+labels_df = spark.table("feature_store_implied_volatility.labels").toPandas()
 
 # COMMAND ----------
 
