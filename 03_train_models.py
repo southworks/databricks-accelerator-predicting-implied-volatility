@@ -63,7 +63,7 @@ transformers = []
 
 # MAGIC %md
 # MAGIC ### Numerical columns
-# MAGIC 
+# MAGIC
 # MAGIC Missing values for numerical columns are imputed with mean by default.
 
 # COMMAND ----------
@@ -184,7 +184,7 @@ except:
 
 with mlflow.start_run(experiment_id=experiment_id_, run_name=f"implied_volatility_{time.time()}") as mlflow_run:
     model.fit(X_train, y_train, regressor__early_stopping_rounds=5, regressor__eval_set=[(X_val_processed,y_val)], regressor__verbose=False)
-    
+
     # Training metrics are logged by MLflow autologging
     # Log metrics for the validation set
     xgb_val_metrics = mlflow.sklearn.eval_and_log_metrics(model, X_val, y_val, prefix="val_")
@@ -204,18 +204,18 @@ display(spark.read.format("mlflow-experiment").load(experiment_id_))
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ### MLFlow UI
-# MAGIC 
+# MAGIC
 # MAGIC MLFlow has a UI component, making tracking of experiments extremely easy.
-# MAGIC 
+# MAGIC
 # MAGIC <img src='https://bbb-databricks-demo-assets.s3.amazonaws.com/Screenshot+2022-07-29+at+1.55.57+PM.png'  style="float: left" width="1150px" />
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Step 4: Feature importance
-# MAGIC 
+# MAGIC
 # MAGIC SHAP is a game-theoretic approach to explain machine learning models, providing a summary plot
 # MAGIC of the relationship between features and model output. Features are ranked in descending order of
 # MAGIC importance, and impact/color describe the correlation between the feature and the target variable.
@@ -227,7 +227,7 @@ display(spark.read.format("mlflow-experiment").load(experiment_id_))
 # MAGIC - SHAP cannot explain models using data with nulls; if your dataset has any, both the background data and
 # MAGIC   examples to explain will be imputed using the mode (most frequent values). This affects the computed
 # MAGIC   SHAP values, as the imputed samples may not match the actual data distribution.
-# MAGIC 
+# MAGIC
 # MAGIC For more information on how to read Shapley values, see the [SHAP documentation](https://shap.readthedocs.io/en/latest/example_notebooks/overviews/An%20introduction%20to%20explainable%20AI%20with%20Shapley%20values.html).
 
 # COMMAND ----------
