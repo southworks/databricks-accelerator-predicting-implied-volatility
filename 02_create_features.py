@@ -2,7 +2,7 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install tensorflow==2.9.0 tf_quant_finance
+# MAGIC %pip install tensorflow==2.9.0 tensorflow-probability==0.17.0 tf_quant_finance numpy==1.22.4
 
 # COMMAND ----------
 
@@ -426,19 +426,11 @@ fs = feature_store.FeatureStoreClient()
 
 # COMMAND ----------
 
-fs.create_table(
-    name="feature_store_implied_volatility.features",
-    primary_keys = ['index'],
-    df = features_ps.to_spark(),
-    description = 'Features set for Implied Volatity')
+features_ps.to_spark().write.format("delta").mode("overwrite").saveAsTable("feature_store_implied_volatility.features")
 
 # COMMAND ----------
 
-fs.create_table(
-    name="feature_store_implied_volatility.labels",
-    primary_keys = ['index'],
-    df = labels_ps.to_spark(),
-    description = 'Labels set for Implied Volatity')
+labels_ps.to_spark().write.format("delta").mode("overwrite").saveAsTable("feature_store_implied_volatility.labels")
 
 # COMMAND ----------
 
