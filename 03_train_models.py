@@ -1,6 +1,6 @@
 # Databricks notebook source
 import pyspark.pandas as ps
-from databricks import feature_store
+from databricks.feature_engineering import FeatureEngineeringClient
 import mlflow
 import databricks.automl_runtime
 import time
@@ -14,12 +14,18 @@ import pandas as pd
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Step 1: Load Data from the Databricks Feature Store
+# MAGIC ## Step 1: Load Data from Databricks Feature Engineering
 
 # COMMAND ----------
 
-features_df = spark.table("feature_store_implied_volatility.features").toPandas()
-labels_df = spark.table("feature_store_implied_volatility.labels").toPandas()
+# Initialize Feature Engineering client
+fe = FeatureEngineeringClient()
+
+# COMMAND ----------
+
+# Read tables from Unity Catalog Feature Engineering
+features_df = spark.table("fe_catalog.implied_volatility.features").toPandas()
+labels_df = spark.table("fe_catalog.implied_volatility.labels").toPandas()
 
 # COMMAND ----------
 
@@ -169,7 +175,7 @@ except:
 mlflow.sklearn.autolog(log_input_examples=True, silent=True)
 
 #experiment_id_ = mlflow.create_experiment("Implied Volatility Prediction")
-experiment_name = experiment_name = f'/Users/{username}/implied_volatility'
+experiment_name = f'/Users/{username}/implied_volatility'
 #mlflow.set_experiment(experiment_name)
 try:
   experiment_id_ = mlflow.create_experiment(experiment_name)
