@@ -23,17 +23,28 @@ Link to the paper - https://arxiv.org/pdf/1901.09647.pdf
     - The automated *Data Profile* feature of the Databricks Notebooks will help us observe the distribution and overall quality of the generated data.
 4. **MLOps - ML experiments and deployment**: This paper requires training many models at the same time. Keeping track of each model (hyper-param tuning, computation time, feature selection, and many others) can become very ineffective when handling so many models simultaneously. That is where [MLFlow](https://databricks.com/product/managed-mlflow)'s Experiments tracking comes to help and streamline model development (see Notebook *03_ML*).
 5. **Productionalization**: Finally, we use [Databricks Workflows](https://databricks.com/blog/2022/05/10/introducing-databricks-workflows.html) to orchestrate the end-to-end execution and deployment. Databricks Workflows is the fully-managed orchestration service for all your data, analytics, and AI needs. Tight integration with the underlying lakehouse platform ensures you create and run reliable production workloads on any cloud while providing deep and centralized monitoring with simplicity for end-users (see Notebook *04_Productionalizing*).
-
 ___
 
 <boris.banushev@databricks.com>
 
 ___
 
+## Deploy to Azure
 
-<img src='https://bbb-databricks-demo-assets.s3.amazonaws.com/IV_arch.png' style="float: left" width="1250px" />
+You can deploy the accelerator to Azure using the button below:
 
-___
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fsouthworks%2Fdatabricks-accelerator-predicting-implied-volatility%2Fmain%2Fbicep%2Fmain.json)
+
+## How to run locally
+
+1. Install the [Databricks](https://marketplace.visualstudio.com/items?itemName=databricks.databricks) extension to VS Code
+1. Create an instance of Databricks Service in the Azure portal
+1. [Follow these steps](https://docs.databricks.com/en/dev-tools/vscode-ext/configure.html) to configure the extension with the new Databricks Service
+1. Use the "Run file as workflow" button to run the notebook you want to test locally
+
+![Databricks extension run file as workflow button](documents/databricksRunFileAsWorkflow.png)
+
+_________
 
 &copy; 2022 Databricks, Inc. All rights reserved. The source in this notebook is provided subject to the Databricks License [https://databricks.com/db-license-source].  All included or referenced third party libraries are subject to the licenses set forth below.
 
