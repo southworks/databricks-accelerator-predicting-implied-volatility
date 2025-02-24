@@ -1,15 +1,19 @@
 # Databricks notebook source
-import pyspark.pandas as ps
-from databricks import feature_store
+from databricks.automl_runtime.sklearn.column_selector import ColumnSelector
+from sklearn import set_config
+from sklearn.compose import ColumnTransformer
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import FunctionTransformer, StandardScaler
+from xgboost import XGBRegressor
 import mlflow
-import databricks.automl_runtime
-import time
-
-from mlflow.tracking import MlflowClient
-import os
-import uuid
-import shutil
 import pandas as pd
+import pyspark.pandas as ps
+import time
+import uuid
 
 # COMMAND ----------
 
@@ -40,7 +44,6 @@ training_col = list(features_df.columns)[:-1]
 
 # COMMAND ----------
 
-from databricks.automl_runtime.sklearn.column_selector import ColumnSelector
 supported_cols = training_col
 col_selector = ColumnSelector(supported_cols)
 
@@ -62,11 +65,6 @@ transformers = []
 
 # COMMAND ----------
 
-from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer, StandardScaler
-
 num_imputers = []
 num_imputers.append(("impute_mean", SimpleImputer(), training_col))
 
@@ -80,8 +78,6 @@ transformers.append(("numerical", numerical_pipeline, training_col))
 
 # COMMAND ----------
 
-from sklearn.compose import ColumnTransformer
-
 preprocessor = ColumnTransformer(transformers, remainder="passthrough", sparse_threshold=0)
 
 # COMMAND ----------
@@ -94,8 +90,6 @@ preprocessor = ColumnTransformer(transformers, remainder="passthrough", sparse_t
 # MAGIC - Test (20% of the dataset used to report the true performance of the model on an unseen dataset)
 
 # COMMAND ----------
-
-from sklearn.model_selection import train_test_split
 
 split_X = features_df.drop([target_col], axis=1)
 split_y = features_df[target_col]
@@ -116,15 +110,6 @@ X_val, X_test, y_val, y_test = train_test_split(split_X_rem, split_y_rem, test_s
 # MAGIC - To view the full list of tunable hyperparameters, check the output of the cell below
 
 # COMMAND ----------
-
-from xgboost import XGBRegressor
-
-# COMMAND ----------
-
-import mlflow
-import sklearn
-from sklearn import set_config
-from sklearn.pipeline import Pipeline
 
 set_config(display='diagram')
 
