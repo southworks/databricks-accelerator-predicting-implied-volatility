@@ -67,7 +67,7 @@ resource jobCreation 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       }
       {
         name: 'BRANCH_NAME'
-        value: 'main'
+        value: 'use-feature-engineering'
       }
     ]
     timeout: 'PT1H'
