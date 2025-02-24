@@ -1,6 +1,13 @@
 @description('The name of the Azure Databricks workspace to create.')
 param databricksResourceName string
 
+@description('The pricing tier of workspace. If the Databricks service already exists, this choice will be ignored.')
+@allowed([
+  'Standard'
+  'Premium'
+])
+param sku string = 'Standard'
+
 var acceleratorRepoName = 'databricks-accelerator-predicting-implied-volatility'
 var randomString = uniqueString(resourceGroup().id, databricksResourceName, acceleratorRepoName)
 var managedResourceGroupName = 'databricks-rg-${databricksResourceName}-${randomString}'
@@ -38,7 +45,7 @@ resource createDatabricks 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   }
   properties: {
     azPowerShellVersion: '9.0'
-    arguments: '-resourceName ${databricksResourceName} -resourceGroupName  ${resourceGroup().name} -location ${location} -sku premium -managedResourceGroupName ${managedResourceGroupName}'
+    arguments: '-resourceName ${databricksResourceName} -resourceGroupName  ${resourceGroup().name} -location ${location} -sku ${toLower(sku)} -managedResourceGroupName ${managedResourceGroupName}'
     scriptContent: '''
       param([string] $resourceName,
         [string] $resourceGroupName,

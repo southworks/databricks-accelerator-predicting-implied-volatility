@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.33.93.31351",
-      "templateHash": "10873565566698627750"
+      "templateHash": "7141986673915119829"
     }
   },
   "parameters": {
@@ -13,6 +13,17 @@
       "type": "string",
       "metadata": {
         "description": "The name of the Azure Databricks workspace to create."
+      }
+    },
+    "sku": {
+      "type": "string",
+      "defaultValue": "Standard",
+      "allowedValues": [
+        "Standard",
+        "Premium"
+      ],
+      "metadata": {
+        "description": "The pricing tier of workspace. If the Databricks service already exists, this choice will be ignored."
       }
     }
   },
@@ -56,7 +67,7 @@
       },
       "properties": {
         "azPowerShellVersion": "9.0",
-        "arguments": "[format('-resourceName {0} -resourceGroupName  {1} -location {2} -sku premium -managedResourceGroupName {3}', parameters('databricksResourceName'), resourceGroup().name, variables('location'), variables('managedResourceGroupName'))]",
+        "arguments": "[format('-resourceName {0} -resourceGroupName  {1} -location {2} -sku {3} -managedResourceGroupName {4}', parameters('databricksResourceName'), resourceGroup().name, variables('location'), toLower(parameters('sku')), variables('managedResourceGroupName'))]",
         "scriptContent": "      param([string] $resourceName,\r\n        [string] $resourceGroupName,\r\n        [string] $location,\r\n        [string] $sku,\r\n        [string] $managedResourceGroupName)\r\n      # Check if workspace exists\r\n      $resource = Get-AzDatabricksWorkspace -Name $resourceName -ResourceGroupName $resourceGroupName | Select-Object -Property ResourceId\r\n      if (-not $resource) {\r\n        # Create new workspace\r\n        Write-Output \"Creating new Databricks workspace: $resourceName\"\r\n        New-AzDatabricksWorkspace -Name $resourceName `\r\n          -ResourceGroupName $resourceGroupName `\r\n          -Location $location `\r\n          -ManagedResourceGroupName $managedResourceGroupName `\r\n          -Sku $sku\r\n        # Wait for provisioning to complete\r\n        $retryCount = 0\r\n        do {\r\n          Start-Sleep -Seconds 15\r\n          $provisioningState = (Get-AzDatabricksWorkspace -Name $resourceName -ResourceGroupName $resourceGroupName).ProvisioningState\r\n          Write-Output \"Current state: $provisioningState (attempt $retryCount)\"\r\n          $retryCount++\r\n        } while ($provisioningState -ne 'Succeeded' -and $retryCount -le 40)\r\n      }\r\n      # Output the workspace ID to signal completion\r\n      $workspace = Get-AzDatabricksWorkspace -Name $resourceName -ResourceGroupName $resourceGroupName\r\n      echo \"{\\\"WorkspaceId\\\": \\\"$workspace.Id\\\", \\\"Exists\\\": \\\"True\"}\" > $AZ_SCRIPTS_OUTPUT_PATH\r\n    ",
         "timeout": "PT1H",
         "cleanupPreference": "OnSuccess",
