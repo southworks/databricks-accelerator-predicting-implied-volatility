@@ -171,31 +171,48 @@ except:
 
 # COMMAND ----------
 
+import numpy as np
+
 # Enable automatic logging of input samples, metrics, parameters, and models
 mlflow.sklearn.autolog(log_input_examples=True, silent=True)
 
-#experiment_id_ = mlflow.create_experiment("Implied Volatility Prediction")
+# Create or get experiment
 experiment_name = f'/Users/{username}/implied_volatility'
-#mlflow.set_experiment(experiment_name)
 try:
   experiment_id_ = mlflow.create_experiment(experiment_name)
 except:
   experiment_id_ = mlflow.get_experiment_by_name(experiment_name).experiment_id
+
+# Create functions to evaluate metrics and log them manually
+def evaluate_and_log_metrics(model, X, y, prefix=""):
+    y_pred = model.predict(X)
+    metrics = {
+        f"{prefix}r2_score": sklearn.metrics.r2_score(y, y_pred),
+        f"{prefix}mean_absolute_error": sklearn.metrics.mean_absolute_error(y, y_pred),
+        f"{prefix}mean_squared_error": sklearn.metrics.mean_squared_error(y, y_pred),
+        f"{prefix}root_mean_squared_error": np.sqrt(sklearn.metrics.mean_squared_error(y, y_pred))
+    }
+
+    # Log metrics to MLflow
+    for metric_name, metric_value in metrics.items():
+        mlflow.log_metric(metric_name, metric_value)
+
+    return metrics
 
 with mlflow.start_run(experiment_id=experiment_id_, run_name=f"implied_volatility_{time.time()}") as mlflow_run:
     model.fit(X_train, y_train, regressor__early_stopping_rounds=5, regressor__eval_set=[(X_val_processed,y_val)], regressor__verbose=False)
 
     # Training metrics are logged by MLflow autologging
     # Log metrics for the validation set
-    xgb_val_metrics = mlflow.sklearn.eval_and_log_metrics(model, X_val, y_val, prefix="val_")
+    xgb_val_metrics = evaluate_and_log_metrics(model, X_val, y_val, prefix="val_")
 
     # Log metrics for the test set
-    xgb_test_metrics = mlflow.sklearn.eval_and_log_metrics(model, X_test, y_test, prefix="test_")
+    xgb_test_metrics = evaluate_and_log_metrics(model, X_test, y_test, prefix="test_")
 
     # Display the logged metrics
-    xgb_val_metrics = {k.replace("val_", ""): v for k, v in xgb_val_metrics.items()}
-    xgb_test_metrics = {k.replace("test_", ""): v for k, v in xgb_test_metrics.items()}
-    display(pd.DataFrame([xgb_val_metrics, xgb_test_metrics], index=["validation", "test"]))
+    xgb_val_metrics_display = {k.replace("val_", ""): v for k, v in xgb_val_metrics.items()}
+    xgb_test_metrics_display = {k.replace("test_", ""): v for k, v in xgb_test_metrics.items()}
+    display(pd.DataFrame([xgb_val_metrics_display, xgb_test_metrics_display], index=["validation", "test"]))
 
 # COMMAND ----------
 

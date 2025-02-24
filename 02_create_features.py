@@ -427,8 +427,9 @@ fe = FeatureEngineeringClient()
 
 # MAGIC %sql
 # MAGIC
-# MAGIC -- Create the catalog and schema for Feature Engineering
+# MAGIC -- Create the catalog and schema for Feature Engineering with managed location
 # MAGIC CREATE CATALOG IF NOT EXISTS fe_catalog;
+# MAGIC MANAGED LOCATION 'abfss://unity-catalog-storage@dbstoragej4lfsu7ssoz24.dfs.core.windows.net/2794602639006270';
 # MAGIC CREATE SCHEMA IF NOT EXISTS fe_catalog.implied_volatility;
 
 # COMMAND ----------
