@@ -23,6 +23,11 @@ Link to the paper - https://arxiv.org/pdf/1901.09647.pdf
     - The automated *Data Profile* feature of the Databricks Notebooks will help us observe the distribution and overall quality of the generated data.
 4. **MLOps - ML experiments and deployment**: This paper requires training many models at the same time. Keeping track of each model (hyper-param tuning, computation time, feature selection, and many others) can become very ineffective when handling so many models simultaneously. That is where [MLFlow](https://databricks.com/product/managed-mlflow)'s Experiments tracking comes to help and streamline model development (see Notebook *03_ML*).
 5. **Productionalization**: Finally, we use [Databricks Workflows](https://databricks.com/blog/2022/05/10/introducing-databricks-workflows.html) to orchestrate the end-to-end execution and deployment. Databricks Workflows is the fully-managed orchestration service for all your data, analytics, and AI needs. Tight integration with the underlying lakehouse platform ensures you create and run reliable production workloads on any cloud while providing deep and centralized monitoring with simplicity for end-users (see Notebook *04_Productionalizing*).
+___
+
+<boris.banushev@databricks.com>
+
+___
 
 ## Deploy to Azure
 
