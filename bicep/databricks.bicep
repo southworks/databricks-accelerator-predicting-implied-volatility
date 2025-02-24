@@ -67,7 +67,7 @@ resource jobCreation 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       }
       {
         name: 'BRANCH_NAME'
-        value: '107247-Create-Bicep-file-and-add-Deploy-to-Azure-button'
+        value: 'main'
       }
     ]
     timeout: 'PT1H'

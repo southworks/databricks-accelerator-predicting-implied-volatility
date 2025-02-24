@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.33.93.31351",
-      "templateHash": "17693191585951970402"
+      "templateHash": "10873565566698627750"
     }
   },
   "parameters": {
@@ -96,7 +96,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.33.93.31351",
-              "templateHash": "9864040810737354958"
+              "templateHash": "14138272709766554065"
             }
           },
           "parameters": {
@@ -148,7 +148,7 @@
                   },
                   {
                     "name": "BRANCH_NAME",
-                    "value": "107247-Create-Bicep-file-and-add-Deploy-to-Azure-button"
+                    "value": "main"
                   }
                 ],
                 "timeout": "PT1H",
