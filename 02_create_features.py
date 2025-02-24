@@ -416,7 +416,7 @@ labels_ps = ps.DataFrame(labels, columns=schema_).reset_index()
 # COMMAND ----------
 
 # Install the feature engineering client
-%pip install "databricks-feature-engineering"
+%pip install databricks-feature-engineering
 
 # COMMAND ----------
 
@@ -425,46 +425,99 @@ fe = FeatureEngineeringClient()
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC
-# MAGIC -- Create the catalog and schema for Feature Engineering with managed location
-# MAGIC CREATE CATALOG IF NOT EXISTS fe_catalog;
-# MAGIC MANAGED LOCATION 'abfss://unity-catalog-storage@dbstoragej4lfsu7ssoz24.dfs.core.windows.net/2794602639006270';
-# MAGIC CREATE SCHEMA IF NOT EXISTS fe_catalog.implied_volatility;
+# Get the storage root from an existing catalog
+def get_storage_root():
+    try:
+        # Get list of catalogs
+        catalogs = spark.sql("SHOW CATALOGS").collect()
+
+        # Look for a workspace-specific catalog (not system, hive_metastore, or our own fe_catalog)
+        for catalog_row in catalogs:
+            catalog_name = catalog_row.catalog
+            if catalog_name not in ['system', 'hive_metastore', 'fe_catalog', 'samples']:
+                print(f"Checking catalog: {catalog_name}")
+                catalog_details = spark.sql(f"DESCRIBE CATALOG EXTENDED {catalog_name}").collect()
+                for row in catalog_details:
+                    if row.info_name == "Storage Root":
+                        return row.info_value
+
+        return None
+    except Exception as e:
+        print(f"Error getting storage root: {e}")
+        return None
+
+# Get the storage root
+storage_root = get_storage_root()
+print(f"Found storage root: {storage_root}")
+
+# COMMAND ----------
+
+# Create catalog with the appropriate storage location
+if storage_root:
+    # Use the same base storage but with a different path for our catalog
+    create_catalog_sql = f"""
+    CREATE CATALOG IF NOT EXISTS fe_catalog
+    MANAGED LOCATION '{storage_root}/fe_catalog'
+    """
+
+    print(f"Creating catalog with SQL: {create_catalog_sql}")
+    spark.sql(create_catalog_sql)
+    spark.sql("CREATE SCHEMA IF NOT EXISTS fe_catalog.implied_volatility")
+else:
+    # Fallback to using an existing catalog
+    print("Could not determine storage root, falling back to using hive_metastore")
+    spark.sql("USE CATALOG hive_metastore")
+    spark.sql("CREATE SCHEMA IF NOT EXISTS implied_volatility")
+
+# COMMAND ----------
+
+# Define feature table names based on which catalog we're using
+if storage_root:
+    features_table_name = "fe_catalog.implied_volatility.features"
+    labels_table_name = "fe_catalog.implied_volatility.labels"
+else:
+    features_table_name = "hive_metastore.implied_volatility.features"
+    labels_table_name = "hive_metastore.implied_volatility.labels"
 
 # COMMAND ----------
 
 # Create the features table in Unity Catalog
-features_table_name = "fe_catalog.implied_volatility.features"
-
 # First convert to spark DataFrame
 features_spark_df = features_ps.to_spark()
 
 # Create feature table
-fe.create_table(
-    name=features_table_name,
-    primary_keys=["index"],
-    df=features_spark_df,
-    description="Features set for Implied Volatility",
-    timestamp_keys=None  # No time-based partitioning for this data
-)
+try:
+    fe.create_table(
+        name=features_table_name,
+        primary_keys=["index"],
+        df=features_spark_df,
+        description="Features set for Implied Volatility",
+        timestamp_keys=None  # No time-based partitioning for this data
+    )
+    print(f"Successfully created feature table: {features_table_name}")
+except Exception as e:
+    print(f"Error creating feature table: {e}")
+    raise e
 
 # COMMAND ----------
 
 # Create the labels table in Unity Catalog
-labels_table_name = "fe_catalog.implied_volatility.labels"
-
 # First convert to spark DataFrame
 labels_spark_df = labels_ps.to_spark()
 
 # Create feature table
-fe.create_table(
-    name=labels_table_name,
-    primary_keys=["index"],
-    df=labels_spark_df,
-    description="Labels set for Implied Volatility",
-    timestamp_keys=None  # No time-based partitioning for this data
-)
+try:
+    fe.create_table(
+        name=labels_table_name,
+        primary_keys=["index"],
+        df=labels_spark_df,
+        description="Labels set for Implied Volatility",
+        timestamp_keys=None  # No time-based partitioning for this data
+    )
+    print(f"Successfully created feature table: {labels_table_name}")
+except Exception as e:
+    print(f"Error creating feature table: {e}")
+    raise e
 
 # COMMAND ----------
 
@@ -474,10 +527,13 @@ fe.create_table(
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC
-# MAGIC USE CATALOG fe_catalog;
-# MAGIC USE SCHEMA implied_volatility;
+# Set the catalog and schema based on which one we used
+if storage_root:
+    spark.sql("USE CATALOG fe_catalog")
+    spark.sql("USE SCHEMA implied_volatility")
+else:
+    spark.sql("USE CATALOG hive_metastore")
+    spark.sql("USE SCHEMA implied_volatility")
 
 # COMMAND ----------
 
@@ -489,7 +545,11 @@ fe.create_table(
 
 # COMMAND ----------
 
-display(spark.sql('SELECT * FROM fe_catalog.implied_volatility.labels'))
+# Display the labels table using the appropriate table name
+if storage_root:
+    display(spark.sql('SELECT * FROM fe_catalog.implied_volatility.labels'))
+else:
+    display(spark.sql('SELECT * FROM hive_metastore.implied_volatility.labels'))
 
 # COMMAND ----------
 
@@ -501,7 +561,11 @@ display(spark.sql('SELECT * FROM fe_catalog.implied_volatility.labels'))
 
 # COMMAND ----------
 
-display(spark.sql('SELECT * FROM fe_catalog.implied_volatility.labels'))
+# Display the labels table for profiling using the appropriate table name
+if storage_root:
+    display(spark.sql('SELECT * FROM fe_catalog.implied_volatility.labels'))
+else:
+    display(spark.sql('SELECT * FROM hive_metastore.implied_volatility.labels'))
 
 # COMMAND ----------
 
