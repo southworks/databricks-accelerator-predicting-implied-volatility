@@ -254,7 +254,7 @@ model = BlackScholesWithVasicelAndLocalVol(
 start_time_ = time.time()
 
 # These are all the maturities we want to reprice our call options
-option_maturities = [0.05]
+option_maturities = [0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.7, 0.9, 1.1, 1.3]
 
 number_of_maturities = len(option_maturities)
 
@@ -331,7 +331,7 @@ durr_ = end_time_ - start_time_
 # COMMAND ----------
 
 # These are all the maturities we want to reprice our call options
-option_maturities = [0.05]
+option_maturities = [0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.7, 0.9, 1.1, 1.3]
 number_of_maturities = len(option_maturities)
 
 # These are all the strikes (on each of above 'option_maturities') of those call options
@@ -339,9 +339,9 @@ option_strikes = np.array([0.95, 0.99 , 1, 1.001, 1.05])
 number_of_strikes = len(option_strikes)
 
 # Number of Monte carlo paths
-num_samples = 400
+num_samples = 4_000
 
-training_samples = 100
+training_samples = 1_000
 np.random.seed(0)
 
 # COMMAND ----------
