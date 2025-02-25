@@ -24,7 +24,7 @@ import pyspark.pandas as ps
 # MAGIC # Step 1. Model Setup
 # MAGIC Let's start by defining a *toy model* (generic Ito Process), which will be a function of specific model parameters.
 # MAGIC
-# MAGIC This model can be used to price call options with specific *maturities* and *strikes* and therefore implied vols (using blackscholes one to one mapping between prie and implied vol).
+# MAGIC This model can be used to price call options with specific *maturities* and *strikes* and therefore implied vols (using blackscholes one to one mapping between price and implied vol).
 # MAGIC
 # MAGIC Our aim is to find the values of model parameters such that implied vols calculated from *this* model match with implied vols obtained from market (this process is called calibration).
 # MAGIC
@@ -396,44 +396,106 @@ labels_ps = ps.DataFrame(labels, columns=schema_).reset_index()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC # Step 3: Save the generated features and labels into Databricks Feature Store
+# MAGIC # Step 3: Save the generated features and labels into Databricks Feature Engineering
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC
-# MAGIC ## Why use Databricks Feature Store?
-# MAGIC Databricks Feature Store is fully integrated with other components of Databricks.
+# MAGIC ## Why use Databricks Feature Engineering?
+# MAGIC Databricks Feature Engineering is fully integrated with Unity Catalog and other components of Databricks.
 # MAGIC
-# MAGIC - **Lineage**. When you create a feature table with Databricks Feature Store, the data sources used to create the feature table are saved and accessible. For each feature in a feature table, you can also access the models, notebooks, jobs, and endpoints that use the feature.
+# MAGIC - **Lineage**. When you create a feature table with Databricks Feature Engineering, the data sources used to create the feature table are saved and accessible. For each feature in a feature table, you can also access the models, notebooks, jobs, and endpoints that use the feature.
 # MAGIC
-# MAGIC - **Discoverability**. The Databricks Feature Store UI, accessible from the Databricks workspace, lets you browse and search for existing features.
+# MAGIC - **Discoverability**. The Unity Catalog UI, accessible from the Databricks workspace, lets you browse and search for existing features.
 # MAGIC
-# MAGIC - **Integration** with model scoring and serving. When you use features from Databricks Feature Store to train a model, the model is packaged with feature metadata. When you use the model for batch scoring or online inference, it automatically retrieves features from Feature Store. The caller does not need to know about them or include logic to look up or join features to score new data. This makes model deployment and updates much easier.
+# MAGIC - **Integration** with model scoring and serving. When you use features from Databricks Feature Engineering to train a model, the model is packaged with feature metadata. When you use the model for batch scoring or online inference, it automatically retrieves features from Feature Engineering. The caller does not need to know about them or include logic to look up or join features to score new data. This makes model deployment and updates much easier.
 # MAGIC
-# MAGIC https://docs.databricks.com/applications/machine-learning/feature-store/index.html
+# MAGIC https://docs.databricks.com/machine-learning/feature-store/index.html
 
 # COMMAND ----------
 
-from databricks import feature_store
-fs = feature_store.FeatureStoreClient()
+# Install the feature engineering client
+%pip install databricks-feature-engineering
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC
-# MAGIC -- Create the Feature Store database
-# MAGIC CREATE DATABASE IF NOT EXISTS feature_store_implied_volatility;
+from databricks.feature_engineering import FeatureEngineeringClient
+fe = FeatureEngineeringClient()
 
 # COMMAND ----------
 
-# Save features as a regular Delta table
-features_ps.to_spark().write.format("delta").mode("overwrite").saveAsTable("feature_store_implied_volatility.features")
+# Get a usable Unity Catalog catalog
+def get_unity_catalog():
+    try:
+        # Get list of catalogs
+        catalogs = spark.sql("SHOW CATALOGS").collect()
+
+        # Look for a workspace-specific catalog (not system, hive_metastore, or samples)
+        for catalog_row in catalogs:
+            catalog_name = catalog_row.catalog
+            if catalog_name not in ['system', 'hive_metastore', 'samples']:
+                print(f"Checking catalog: {catalog_name}")
+                # Try to use this catalog
+                try:
+                    spark.sql(f"USE CATALOG {catalog_name}")
+                    print(f"Successfully accessed Unity Catalog: {catalog_name}")
+                    return catalog_name
+                except Exception as e:
+                    print(f"Cannot use catalog {catalog_name}: {e}")
+
+        raise Exception("No usable Unity Catalog found. Feature Engineering requires Unity Catalog access.")
+    except Exception as e:
+        raise Exception(f"Error accessing Unity Catalog: {e}")
+
+# Get Unity Catalog and create schema
+catalog_name = get_unity_catalog()
+spark.sql(f"USE CATALOG {catalog_name}")
+spark.sql("CREATE SCHEMA IF NOT EXISTS implied_volatility")
+
+# Set table names using the catalog
+features_table_name = f"{catalog_name}.implied_volatility.features"
+labels_table_name = f"{catalog_name}.implied_volatility.labels"
 
 # COMMAND ----------
 
-# Save labels as a regular Delta table
-labels_ps.to_spark().write.format("delta").mode("overwrite").saveAsTable("feature_store_implied_volatility.labels")
+# Create the features table in Unity Catalog
+# First convert to spark DataFrame
+features_spark_df = features_ps.to_spark()
+
+# Create feature table
+try:
+    fe.create_table(
+        name=features_table_name,
+        primary_keys=["index"],
+        df=features_spark_df,
+        description="Features set for Implied Volatility",
+        timestamp_keys=None  # No time-based partitioning for this data
+    )
+    print(f"Successfully created feature table: {features_table_name}")
+except Exception as e:
+    print(f"Error creating feature table: {e}")
+    raise e
+
+# COMMAND ----------
+
+# Create the labels table in Unity Catalog
+# First convert to spark DataFrame
+labels_spark_df = labels_ps.to_spark()
+
+# Create feature table
+try:
+    fe.create_table(
+        name=labels_table_name,
+        primary_keys=["index"],
+        df=labels_spark_df,
+        description="Labels set for Implied Volatility",
+        timestamp_keys=None  # No time-based partitioning for this data
+    )
+    print(f"Successfully created feature table: {labels_table_name}")
+except Exception as e:
+    print(f"Error creating feature table: {e}")
+    raise e
 
 # COMMAND ----------
 
@@ -443,24 +505,23 @@ labels_ps.to_spark().write.format("delta").mode("overwrite").saveAsTable("featur
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC
-# MAGIC use feature_store_implied_volatility
+# Set the catalog and schema based on the Unity Catalog we found
+spark.sql(f"USE CATALOG {catalog_name}")
+spark.sql("USE SCHEMA implied_volatility")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC
-# MAGIC ### 3.1.1. Visualise the generated data and explore
+# MAGIC ### 3.1.1. Visualize the generated data and explore
 # MAGIC
-# MAGIC Databricks Notebooks have built-in dashboarding capabilities (which we can observe below). We can very quickly visualise the features and labels that we just saved into the Databricks Feature Store. Below we have the scattered plot of various strike levels for the same maturity (of the generated data). The chart even offers a LOESS regression that can give us even more information about the distribution of the residuals of the generated data.
+# MAGIC Databricks Notebooks have built-in dashboarding capabilities (which we can observe below). We can very quickly visualize the features and labels that we just saved into the Databricks Feature Engineering tables. Below we have the scattered plot of various strike levels for the same maturity (of the generated data). The chart even offers a LOESS regression that can give us even more information about the distribution of the residuals of the generated data.
 
 # COMMAND ----------
-
-display(spark.sql('select * from labels'))
+# Display the labels table using the appropriate table name
+display(spark.sql(f'SELECT * FROM {catalog_name}.implied_volatility.labels'))
 
 # COMMAND ----------
-
 # MAGIC %md
 # MAGIC
 # MAGIC ### 3.1.2. Data Profiling
@@ -468,8 +529,8 @@ display(spark.sql('select * from labels'))
 # MAGIC Databricks Notebooks have built-in data profiling features. In the cell below, we can observe a lot of statistical information for the newly generated features and labels, without having to use third-party tools or write additional code.
 
 # COMMAND ----------
-
-display(spark.sql('select * from labels'))
+# Display the labels table for profiling using the appropriate table name
+display(spark.sql(f'SELECT * FROM {catalog_name}.implied_volatility.labels'))
 
 # COMMAND ----------
 
@@ -481,7 +542,8 @@ display(spark.sql('select * from labels'))
 
 # COMMAND ----------
 
-features_ps.iloc[:, 1:].to_spark().createOrReplaceTempView('IVfeatures_view')
+# Create a view for R to use
+features_spark_df.createOrReplaceTempView('IVfeatures_view')
 
 # COMMAND ----------
 

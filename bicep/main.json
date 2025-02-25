@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.33.93.31351",
-      "templateHash": "7141986673915119829"
+      "templateHash": "5635711037905106781"
     }
   },
   "parameters": {
@@ -13,17 +13,6 @@
       "type": "string",
       "metadata": {
         "description": "The name of the Azure Databricks workspace to create."
-      }
-    },
-    "sku": {
-      "type": "string",
-      "defaultValue": "Standard",
-      "allowedValues": [
-        "Standard",
-        "Premium"
-      ],
-      "metadata": {
-        "description": "The pricing tier of workspace. If the Databricks service already exists, this choice will be ignored."
       }
     }
   },
@@ -67,8 +56,8 @@
       },
       "properties": {
         "azPowerShellVersion": "9.0",
-        "arguments": "[format('-resourceName {0} -resourceGroupName  {1} -location {2} -sku {3} -managedResourceGroupName {4}', parameters('databricksResourceName'), resourceGroup().name, variables('location'), toLower(parameters('sku')), variables('managedResourceGroupName'))]",
-        "scriptContent": "      param([string] $resourceName,\r\n        [string] $resourceGroupName,\r\n        [string] $location,\r\n        [string] $sku,\r\n        [string] $managedResourceGroupName)\r\n      # Check if workspace exists\r\n      $resource = Get-AzDatabricksWorkspace -Name $resourceName -ResourceGroupName $resourceGroupName | Select-Object -Property ResourceId\r\n      if (-not $resource) {\r\n        # Create new workspace\r\n        Write-Output \"Creating new Databricks workspace: $resourceName\"\r\n        New-AzDatabricksWorkspace -Name $resourceName `\r\n          -ResourceGroupName $resourceGroupName `\r\n          -Location $location `\r\n          -ManagedResourceGroupName $managedResourceGroupName `\r\n          -Sku $sku\r\n        # Wait for provisioning to complete\r\n        $retryCount = 0\r\n        do {\r\n          Start-Sleep -Seconds 15\r\n          $provisioningState = (Get-AzDatabricksWorkspace -Name $resourceName -ResourceGroupName $resourceGroupName).ProvisioningState\r\n          Write-Output \"Current state: $provisioningState (attempt $retryCount)\"\r\n          $retryCount++\r\n        } while ($provisioningState -ne 'Succeeded' -and $retryCount -le 40)\r\n      }\r\n      # Output the workspace ID to signal completion\r\n      $workspace = Get-AzDatabricksWorkspace -Name $resourceName -ResourceGroupName $resourceGroupName\r\n      echo \"{\\\"WorkspaceId\\\": \\\"$workspace.Id\\\", \\\"Exists\\\": \\\"True\"}\" > $AZ_SCRIPTS_OUTPUT_PATH\r\n    ",
+        "arguments": "[format('-resourceName {0} -resourceGroupName  {1} -location {2} -sku premium -managedResourceGroupName {3}', parameters('databricksResourceName'), resourceGroup().name, variables('location'), variables('managedResourceGroupName'))]",
+        "scriptContent": "      param([string] $resourceName,\r\n        [string] $resourceGroupName,\r\n        [string] $location,\r\n        [string] $sku,\r\n        [string] $managedResourceGroupName)\r\n      # Check if workspace exists\r\n      $resource = Get-AzDatabricksWorkspace -Name $resourceName -ResourceGroupName $resourceGroupName | Select-Object -Property ResourceId\r\n      if ($resource) {\r\n        # Check if the SKU is premium\r\n        if ($resource.Sku -ne 'premium') {\r\n          throw \"The existing Databricks workspace does not have the required SKU 'premium'.\"\r\n        }\r\n      }\r\n      if (-not $resource) {\r\n        # Create new workspace\r\n        Write-Output \"Creating new Databricks workspace: $resourceName\"\r\n        New-AzDatabricksWorkspace -Name $resourceName `\r\n          -ResourceGroupName $resourceGroupName `\r\n          -Location $location `\r\n          -ManagedResourceGroupName $managedResourceGroupName `\r\n          -Sku $sku\r\n        # Wait for provisioning to complete\r\n        $retryCount = 0\r\n        do {\r\n          Start-Sleep -Seconds 15\r\n          $provisioningState = (Get-AzDatabricksWorkspace -Name $resourceName -ResourceGroupName $resourceGroupName).ProvisioningState\r\n          Write-Output \"Current state: $provisioningState (attempt $retryCount)\"\r\n          $retryCount++\r\n        } while ($provisioningState -ne 'Succeeded' -and $retryCount -le 40)\r\n      }\r\n      # Output the workspace ID to signal completion\r\n      $workspace = Get-AzDatabricksWorkspace -Name $resourceName -ResourceGroupName $resourceGroupName\r\n      echo \"{\\\"WorkspaceId\\\": \\\"$workspace.Id\\\", \\\"Exists\\\": \\\"True\"}\" > $AZ_SCRIPTS_OUTPUT_PATH\r\n    ",
         "timeout": "PT1H",
         "cleanupPreference": "OnSuccess",
         "retentionInterval": "PT2H"
@@ -107,7 +96,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.33.93.31351",
-              "templateHash": "14138272709766554065"
+              "templateHash": "13763297490694257828"
             }
           },
           "parameters": {
@@ -139,7 +128,7 @@
               "kind": "AzureCLI",
               "properties": {
                 "azCliVersion": "2.9.1",
-                "scriptContent": "      set -e\r\n      curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh\r\n\r\n      repo_path=\"/Users/${ARM_CLIENT_ID}/${ACCELERATOR_REPO_NAME}\"\r\n      repo_info=$(databricks repos get \"${repo_path}\" 2>/dev/null || true)\r\n\r\n      # Check if the repo exists; if not, create it. If it exists, update it.\r\n      if [ -z \"$repo_info\" ]; then\r\n          echo \"Repository does not exist. Creating...\"\r\n          databricks repos create https://github.com/southworks/${ACCELERATOR_REPO_NAME} gitHub\r\n          repo_id=$(databricks repos get \"${repo_path}\" | jq -r '.id')\r\n          databricks repos update ${repo_id} --branch ${BRANCH_NAME}\r\n      else\r\n          echo \"Repository exists. Updating to latest main branch...\"\r\n          repo_id=$(databricks repos get \"${repo_path}\" | jq -r '.id')\r\n          databricks repos update ${repo_id} --branch ${BRANCH_NAME}\r\n      fi\r\n      databricks workspace export ${repo_path}/bicep/job-template.json > job-template.json\r\n      notebook_path=\"${repo_path}/RUNME\"\r\n      jq \".tasks[0].notebook_task.notebook_path = \\\"${notebook_path}\\\"\" job-template.json > job.json\r\n      job_page_url=$(databricks jobs submit --json @./job.json | jq -r '.run_page_url')\r\n      echo \"{\\\"job_page_url\\\": \\\"$job_page_url\\\"}\" > $AZ_SCRIPTS_OUTPUT_PATH\r\n      ",
+                "scriptContent": "      set -e\r\n\r\n      # Install Databricks CLI\r\n      echo \"Installing Databricks CLI...\"\r\n      curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh\r\n\r\n      # Wait for Azure Databricks resource to finish creating the MRG storage containers\r\n      echo \"Testing connection and waiting for storage initialization...\"\r\n      max_attempts=30\r\n      attempt=0\r\n      while [ $attempt -lt $max_attempts ]; do\r\n        if databricks fs ls dbfs:/; then\r\n          echo \"Storage initialized successfully\"\r\n          break\r\n        fi\r\n        echo \"Waiting for storage initialization... (attempt $((attempt + 1)))\"\r\n        sleep 10\r\n        attempt=$((attempt + 1))\r\n      done\r\n      if [ $attempt -eq $max_attempts ]; then\r\n        echo \"Timeout waiting for storage initialization\"\r\n        exit 1\r\n      fi\r\n\r\n      # Check if the repo exists; if not, create it. If it exists, update it\r\n      repo_path=\"/Users/${ARM_CLIENT_ID}/${ACCELERATOR_REPO_NAME}\"\r\n      repo_info=$(databricks repos get \"${repo_path}\" 2>/dev/null || true)\r\n\r\n      if [ -z \"$repo_info\" ]; then\r\n          echo \"Repository does not exist. Creating...\"\r\n          databricks repos create https://github.com/southworks/${ACCELERATOR_REPO_NAME} gitHub\r\n          repo_id=$(databricks repos get \"${repo_path}\" | jq -r '.id')\r\n          databricks repos update ${repo_id} --branch ${BRANCH_NAME}\r\n      else\r\n          echo \"Repository exists. Updating to latest main branch...\"\r\n          repo_id=$(databricks repos get \"${repo_path}\" | jq -r '.id')\r\n          databricks repos update ${repo_id} --branch ${BRANCH_NAME}\r\n      fi\r\n\r\n      # Add RUNME.py path into job-template.json\r\n      databricks workspace export ${repo_path}/bicep/job-template.json > job-template.json\r\n      notebook_path=\"${repo_path}/RUNME\"\r\n      jq \".tasks[0].notebook_task.notebook_path = \\\"${notebook_path}\\\"\" job-template.json > job.json\r\n\r\n      # Create and run Databricks job\r\n      job_page_url=$(databricks jobs submit --json @./job.json | jq -r '.run_page_url')\r\n      echo \"{\\\"job_page_url\\\": \\\"$job_page_url\\\"}\" > $AZ_SCRIPTS_OUTPUT_PATH\r\n      ",
                 "environmentVariables": [
                   {
                     "name": "DATABRICKS_AZURE_RESOURCE_ID",

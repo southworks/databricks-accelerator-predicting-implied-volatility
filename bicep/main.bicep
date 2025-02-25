@@ -1,13 +1,6 @@
 @description('The name of the Azure Databricks workspace to create.')
 param databricksResourceName string
 
-@description('The pricing tier of workspace. If the Databricks service already exists, this choice will be ignored.')
-@allowed([
-  'Standard'
-  'Premium'
-])
-param sku string = 'Standard'
-
 var acceleratorRepoName = 'databricks-accelerator-predicting-implied-volatility'
 var randomString = uniqueString(resourceGroup().id, databricksResourceName, acceleratorRepoName)
 var managedResourceGroupName = 'databricks-rg-${databricksResourceName}-${randomString}'
@@ -45,7 +38,7 @@ resource createDatabricks 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   }
   properties: {
     azPowerShellVersion: '9.0'
-    arguments: '-resourceName ${databricksResourceName} -resourceGroupName  ${resourceGroup().name} -location ${location} -sku ${toLower(sku)} -managedResourceGroupName ${managedResourceGroupName}'
+    arguments: '-resourceName ${databricksResourceName} -resourceGroupName  ${resourceGroup().name} -location ${location} -sku premium -managedResourceGroupName ${managedResourceGroupName}'
     scriptContent: '''
       param([string] $resourceName,
         [string] $resourceGroupName,
@@ -54,6 +47,12 @@ resource createDatabricks 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
         [string] $managedResourceGroupName)
       # Check if workspace exists
       $resource = Get-AzDatabricksWorkspace -Name $resourceName -ResourceGroupName $resourceGroupName | Select-Object -Property ResourceId
+      if ($resource) {
+        # Check if the SKU is premium
+        if ($resource.Sku -ne 'premium') {
+          throw "The existing Databricks workspace does not have the required SKU 'premium'."
+        }
+      }
       if (-not $resource) {
         # Create new workspace
         Write-Output "Creating new Databricks workspace: $resourceName"
