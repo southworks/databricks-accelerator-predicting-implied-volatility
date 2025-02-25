@@ -1,4 +1,5 @@
 # Databricks notebook source
+# Import required libraries for ML model training and feature engineering
 import pyspark.pandas as ps
 from databricks.feature_engineering import FeatureEngineeringClient
 import mlflow
@@ -18,12 +19,12 @@ import pandas as pd
 
 # COMMAND ----------
 
-# Initialize Feature Engineering client
+# Initialize Feature Engineering client to access the stored features
 fe = FeatureEngineeringClient()
 
 # COMMAND ----------
 
-# Get a usable Unity Catalog catalog
+# Helper function to find a usable Unity Catalog with our data
 def get_unity_catalog():
     try:
         # Get list of catalogs
@@ -61,7 +62,7 @@ def get_unity_catalog():
     except Exception as e:
         raise Exception(f"Error accessing Unity Catalog: {e}")
 
-# Get Unity Catalog with our schema - try a direct approach first
+# Try to access a known catalog directly first, then fallback to discovery
 try:
     print("Trying direct table access first...")
     # Try the known catalog directly
@@ -82,13 +83,16 @@ labels_df = spark.table(f"{catalog_name}.implied_volatility.labels").toPandas()
 
 # COMMAND ----------
 
-features_df = features_df.iloc[:, 1:]
-features_df['target'] = labels_df['0.05_0.95']
+# For simplicity, we'll train a model for just one label (0.05_0.95)
+# In a real scenario, we might train models for each strike/maturity combination
+features_df = features_df.iloc[:, 1:]  # Remove the first column (likely an index)
+features_df['target'] = labels_df['0.05_0.95']  # Add one label as our target
 
 # COMMAND ----------
 
+# Define target column and feature columns
 target_col = "target"
-training_col = list(features_df.columns)[:-1]
+training_col = list(features_df.columns)[:-1]  # All columns except target
 
 # COMMAND ----------
 
@@ -99,6 +103,7 @@ training_col = list(features_df.columns)[:-1]
 
 # COMMAND ----------
 
+# Create a ColumnSelector to ensure we only use supported columns
 from databricks.automl_runtime.sklearn.column_selector import ColumnSelector
 supported_cols = training_col
 col_selector = ColumnSelector(supported_cols)
@@ -110,6 +115,7 @@ col_selector = ColumnSelector(supported_cols)
 
 # COMMAND ----------
 
+# Initialize transformer list for preprocessing pipeline
 transformers = []
 
 # COMMAND ----------
@@ -121,24 +127,32 @@ transformers = []
 
 # COMMAND ----------
 
+# Set up scikit-learn preprocessing pipeline for numerical features
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer, StandardScaler
 
+# Create imputer for handling missing values in numerical columns
 num_imputers = []
 num_imputers.append(("impute_mean", SimpleImputer(), training_col))
 
+# Create pipeline for preprocessing numerical data:
+# 1. Convert to numeric (coercing errors)
+# 2. Impute missing values
+# 3. Standardize features (zero mean, unit variance)
 numerical_pipeline = Pipeline(steps=[
     ("converter", FunctionTransformer(lambda df: df.apply(pd.to_numeric, errors="coerce"))),
     ("imputers", ColumnTransformer(num_imputers)),
     ("standardizer", StandardScaler()),
 ])
 
+# Add numerical preprocessing to transformers list
 transformers.append(("numerical", numerical_pipeline, training_col))
 
 # COMMAND ----------
 
+# Combine all preprocessing steps into a single ColumnTransformer
 from sklearn.compose import ColumnTransformer
 
 preprocessor = ColumnTransformer(transformers, remainder="passthrough", sparse_threshold=0)
@@ -154,15 +168,16 @@ preprocessor = ColumnTransformer(transformers, remainder="passthrough", sparse_t
 
 # COMMAND ----------
 
+# Split data into train, validation, and test sets
 from sklearn.model_selection import train_test_split
 
-split_X = features_df.drop([target_col], axis=1)
-split_y = features_df[target_col]
+split_X = features_df.drop([target_col], axis=1)  # Features
+split_y = features_df[target_col]  # Target
 
-# Split out train data
+# Split out train data (60% of the dataset)
 X_train, split_X_rem, y_train, split_y_rem = train_test_split(split_X, split_y, train_size=0.6, random_state=224145758)
 
-# Split remaining data equally for validation and test
+# Split remaining data equally for validation and test (20% each)
 X_val, X_test, y_val, y_test = train_test_split(split_X_rem, split_y_rem, test_size=0.5, random_state=224145758)
 
 # COMMAND ----------
@@ -176,47 +191,58 @@ X_val, X_test, y_val, y_test = train_test_split(split_X_rem, split_y_rem, test_s
 
 # COMMAND ----------
 
+# Import XGBoost regressor model
 from xgboost import XGBRegressor
 
 # COMMAND ----------
 
+# Set up MLflow tracking and scikit-learn config
 import mlflow
 import sklearn
 from sklearn import set_config
 from sklearn.pipeline import Pipeline
 
+# Set sklearn to display pipeline diagrams
 set_config(display='diagram')
 
+# Create XGBoost model with optimized hyperparameters
 xgb_regressor = XGBRegressor(
-  colsample_bytree=0.6385875217228281,
-  learning_rate=0.10603131742006,
-  max_depth=6,
-  min_child_weight=8,
-  n_estimators=148,
-  n_jobs=100,
-  subsample=0.5203076979604147,
-  verbosity=0,
-  random_state=224145758,
+  colsample_bytree=0.6385875217228281,  # Fraction of features to use per tree
+  learning_rate=0.10603131742006,       # Step size shrinkage to prevent overfitting
+  max_depth=6,                          # Maximum tree depth
+  min_child_weight=8,                   # Minimum sum of instance weight needed in a child
+  n_estimators=148,                     # Number of trees to build
+  n_jobs=100,                           # Parallel jobs for computation
+  subsample=0.5203076979604147,         # Fraction of samples used for fitting trees
+  verbosity=0,                          # Silent mode
+  random_state=224145758,               # For reproducibility
 )
 
+# Create full pipeline: column selection -> preprocessing -> model
 model = Pipeline([
     ("column_selector", col_selector),
     ("preprocessor", preprocessor),
     ("regressor", xgb_regressor),
 ])
 
-# Create a separate pipeline to transform the validation dataset. This is used for early stopping.
+# Create a separate preprocessing pipeline for validation data
+# This is used for early stopping during training
 pipeline = Pipeline([
     ("column_selector", col_selector),
     ("preprocessor", preprocessor),
 ])
 
+# Disable MLflow autologging temporarily (we'll handle logging manually)
 mlflow.sklearn.autolog(disable=True)
+
+# Fit preprocessing pipeline to training data and transform validation data
 pipeline.fit(X_train, y_train)
 X_val_processed = pipeline.transform(X_val)
 
 # COMMAND ----------
 
+# Get current username for MLflow experiment naming
+# If not available, generate a unique ID
 try:
   username = dbutils.notebook.entry_point.getDbutils().notebook().getContext().tags().apply('user')
 except:
@@ -224,20 +250,33 @@ except:
 
 # COMMAND ----------
 
+# Import numpy for calculating metrics
 import numpy as np
 
-# Enable automatic logging of input samples, metrics, parameters, and models
+# Enable MLflow autologging for scikit-learn models
 mlflow.sklearn.autolog(log_input_examples=True, silent=True)
 
-# Create or get experiment
+# Create or get MLflow experiment for tracking
 experiment_name = f'/Users/{username}/implied_volatility'
 try:
   experiment_id_ = mlflow.create_experiment(experiment_name)
 except:
   experiment_id_ = mlflow.get_experiment_by_name(experiment_name).experiment_id
 
-# Create functions to evaluate metrics and log them manually
+# Function to evaluate model metrics and log them to MLflow
 def evaluate_and_log_metrics(model, X, y, prefix=""):
+    """
+    Evaluate model performance on given data and log metrics to MLflow
+
+    Args:
+        model: Trained sklearn model
+        X: Features
+        y: Target values
+        prefix: Prefix for metric names (e.g., 'val_' or 'test_')
+
+    Returns:
+        Dictionary of metrics
+    """
     y_pred = model.predict(X)
     metrics = {
         f"{prefix}r2_score": sklearn.metrics.r2_score(y, y_pred),
@@ -252,23 +291,30 @@ def evaluate_and_log_metrics(model, X, y, prefix=""):
 
     return metrics
 
+# Start MLflow run, train model, and log metrics
 with mlflow.start_run(experiment_id=experiment_id_, run_name=f"implied_volatility_{time.time()}") as mlflow_run:
-    model.fit(X_train, y_train, regressor__early_stopping_rounds=5, regressor__eval_set=[(X_val_processed,y_val)], regressor__verbose=False)
+    # Train model with early stopping using validation data
+    model.fit(X_train, y_train,
+              regressor__early_stopping_rounds=5,  # Stop if no improvement after 5 rounds
+              regressor__eval_set=[(X_val_processed, y_val)],
+              regressor__verbose=False)
 
     # Training metrics are logged by MLflow autologging
+
     # Log metrics for the validation set
     xgb_val_metrics = evaluate_and_log_metrics(model, X_val, y_val, prefix="val_")
 
-    # Log metrics for the test set
+    # Log metrics for the test set (held-out data)
     xgb_test_metrics = evaluate_and_log_metrics(model, X_test, y_test, prefix="test_")
 
-    # Display the logged metrics
+    # Display the logged metrics in a table
     xgb_val_metrics_display = {k.replace("val_", ""): v for k, v in xgb_val_metrics.items()}
     xgb_test_metrics_display = {k.replace("test_", ""): v for k, v in xgb_test_metrics.items()}
     display(pd.DataFrame([xgb_val_metrics_display, xgb_test_metrics_display], index=["validation", "test"]))
 
 # COMMAND ----------
 
+# Display all runs from our MLflow experiment
 display(spark.read.format("mlflow-experiment").load(experiment_id_))
 
 # COMMAND ----------
@@ -303,10 +349,12 @@ display(spark.read.format("mlflow-experiment").load(experiment_id_))
 # COMMAND ----------
 
 # Set this flag to True and re-run the notebook to see the SHAP plots
+# SHAP plots help explain model predictions and feature importance
 shap_enabled = False
 
 # COMMAND ----------
 
+# If SHAP is enabled, calculate and display feature importance
 if shap_enabled:
     from shap import KernelExplainer, summary_plot
     # Sample background data for SHAP Explainer. Increase the sample size to reduce variance.
