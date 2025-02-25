@@ -425,59 +425,37 @@ fe = FeatureEngineeringClient()
 
 # COMMAND ----------
 
-# Get the storage root from an existing catalog
-def get_storage_root():
+# Get a usable Unity Catalog catalog
+def get_unity_catalog():
     try:
         # Get list of catalogs
         catalogs = spark.sql("SHOW CATALOGS").collect()
 
-        # Look for a workspace-specific catalog (not system, hive_metastore, or our own fe_catalog)
+        # Look for a workspace-specific catalog (not system, hive_metastore, or samples)
         for catalog_row in catalogs:
             catalog_name = catalog_row.catalog
-            if catalog_name not in ['system', 'hive_metastore', 'fe_catalog', 'samples']:
+            if catalog_name not in ['system', 'hive_metastore', 'samples']:
                 print(f"Checking catalog: {catalog_name}")
-                catalog_details = spark.sql(f"DESCRIBE CATALOG EXTENDED {catalog_name}").collect()
-                for row in catalog_details:
-                    if row.info_name == "Storage Root":
-                        return row.info_value
+                # Try to use this catalog
+                try:
+                    spark.sql(f"USE CATALOG {catalog_name}")
+                    print(f"Successfully accessed Unity Catalog: {catalog_name}")
+                    return catalog_name
+                except Exception as e:
+                    print(f"Cannot use catalog {catalog_name}: {e}")
 
-        return None
+        raise Exception("No usable Unity Catalog found. Feature Engineering requires Unity Catalog access.")
     except Exception as e:
-        print(f"Error getting storage root: {e}")
-        return None
+        raise Exception(f"Error accessing Unity Catalog: {e}")
 
-# Get the storage root
-storage_root = get_storage_root()
-print(f"Found storage root: {storage_root}")
+# Get Unity Catalog and create schema
+catalog_name = get_unity_catalog()
+spark.sql(f"USE CATALOG {catalog_name}")
+spark.sql("CREATE SCHEMA IF NOT EXISTS implied_volatility")
 
-# COMMAND ----------
-
-# Create catalog with the appropriate storage location
-if storage_root:
-    # Use the same base storage but with a different path for our catalog
-    create_catalog_sql = f"""
-    CREATE CATALOG IF NOT EXISTS fe_catalog
-    MANAGED LOCATION '{storage_root}/fe_catalog'
-    """
-
-    print(f"Creating catalog with SQL: {create_catalog_sql}")
-    spark.sql(create_catalog_sql)
-    spark.sql("CREATE SCHEMA IF NOT EXISTS fe_catalog.implied_volatility")
-else:
-    # Fallback to using an existing catalog
-    print("Could not determine storage root, falling back to using hive_metastore")
-    spark.sql("USE CATALOG hive_metastore")
-    spark.sql("CREATE SCHEMA IF NOT EXISTS implied_volatility")
-
-# COMMAND ----------
-
-# Define feature table names based on which catalog we're using
-if storage_root:
-    features_table_name = "fe_catalog.implied_volatility.features"
-    labels_table_name = "fe_catalog.implied_volatility.labels"
-else:
-    features_table_name = "hive_metastore.implied_volatility.features"
-    labels_table_name = "hive_metastore.implied_volatility.labels"
+# Set table names using the catalog
+features_table_name = f"{catalog_name}.implied_volatility.features"
+labels_table_name = f"{catalog_name}.implied_volatility.labels"
 
 # COMMAND ----------
 
@@ -527,13 +505,9 @@ except Exception as e:
 
 # COMMAND ----------
 
-# Set the catalog and schema based on which one we used
-if storage_root:
-    spark.sql("USE CATALOG fe_catalog")
-    spark.sql("USE SCHEMA implied_volatility")
-else:
-    spark.sql("USE CATALOG hive_metastore")
-    spark.sql("USE SCHEMA implied_volatility")
+# Set the catalog and schema based on the Unity Catalog we found
+spark.sql(f"USE CATALOG {catalog_name}")
+spark.sql("USE SCHEMA implied_volatility")
 
 # COMMAND ----------
 
@@ -544,15 +518,10 @@ else:
 # MAGIC Databricks Notebooks have built-in dashboarding capabilities (which we can observe below). We can very quickly visualize the features and labels that we just saved into the Databricks Feature Engineering tables. Below we have the scattered plot of various strike levels for the same maturity (of the generated data). The chart even offers a LOESS regression that can give us even more information about the distribution of the residuals of the generated data.
 
 # COMMAND ----------
-
 # Display the labels table using the appropriate table name
-if storage_root:
-    display(spark.sql('SELECT * FROM fe_catalog.implied_volatility.labels'))
-else:
-    display(spark.sql('SELECT * FROM hive_metastore.implied_volatility.labels'))
+display(spark.sql(f'SELECT * FROM {catalog_name}.implied_volatility.labels'))
 
 # COMMAND ----------
-
 # MAGIC %md
 # MAGIC
 # MAGIC ### 3.1.2. Data Profiling
@@ -560,12 +529,8 @@ else:
 # MAGIC Databricks Notebooks have built-in data profiling features. In the cell below, we can observe a lot of statistical information for the newly generated features and labels, without having to use third-party tools or write additional code.
 
 # COMMAND ----------
-
 # Display the labels table for profiling using the appropriate table name
-if storage_root:
-    display(spark.sql('SELECT * FROM fe_catalog.implied_volatility.labels'))
-else:
-    display(spark.sql('SELECT * FROM hive_metastore.implied_volatility.labels'))
+display(spark.sql(f'SELECT * FROM {catalog_name}.implied_volatility.labels'))
 
 # COMMAND ----------
 

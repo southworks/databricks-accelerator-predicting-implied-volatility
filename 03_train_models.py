@@ -23,9 +23,62 @@ fe = FeatureEngineeringClient()
 
 # COMMAND ----------
 
+# Get a usable Unity Catalog catalog
+def get_unity_catalog():
+    try:
+        # Get list of catalogs
+        catalogs = spark.sql("SHOW CATALOGS").collect()
+
+        # Look for a workspace-specific catalog (not system, hive_metastore, or samples)
+        for catalog_row in catalogs:
+            catalog_name = catalog_row.catalog
+            if catalog_name not in ['system', 'hive_metastore', 'samples']:
+                print(f"Checking catalog: {catalog_name}")
+                # Try to use this catalog
+                try:
+                    # Try to access the tables directly to verify access
+                    try:
+                        # Try to query the catalog directly
+                        test_df = spark.sql(f"SHOW SCHEMAS IN {catalog_name}")
+                        schema_list = [row.databaseName for row in test_df.collect()]
+                        print(f"Schemas in {catalog_name}: {schema_list}")
+
+                        if "implied_volatility" in schema_list:
+                            print(f"Found implied_volatility schema in catalog: {catalog_name}")
+                            # Try to confirm table access
+                            try:
+                                table_test = spark.sql(f"SELECT COUNT(*) FROM {catalog_name}.implied_volatility.features").collect()
+                                print(f"Successfully accessed features table in {catalog_name}")
+                                return catalog_name
+                            except Exception as e:
+                                print(f"Cannot access tables in {catalog_name}.implied_volatility: {e}")
+                    except Exception as e:
+                        print(f"Error checking schemas in {catalog_name}: {e}")
+                except Exception as e:
+                    print(f"Cannot use catalog {catalog_name}: {e}")
+
+        raise Exception("No Unity Catalog with implied_volatility schema found. Please run notebook 02 first.")
+    except Exception as e:
+        raise Exception(f"Error accessing Unity Catalog: {e}")
+
+# Get Unity Catalog with our schema - try a direct approach first
+try:
+    print("Trying direct table access first...")
+    # Try the known catalog directly
+    direct_catalog = "legend_dbw_test_2357533909889557"
+    test_query = spark.sql(f"SELECT COUNT(*) FROM {direct_catalog}.implied_volatility.features").collect()
+    print(f"Successfully accessed {direct_catalog} directly")
+    catalog_name = direct_catalog
+except Exception as e:
+    print(f"Direct access failed: {e}")
+    print("Falling back to catalog discovery...")
+    catalog_name = get_unity_catalog()
+
+print(f"Using catalog: {catalog_name}")
+
 # Read tables from Unity Catalog Feature Engineering
-features_df = spark.table("fe_catalog.implied_volatility.features").toPandas()
-labels_df = spark.table("fe_catalog.implied_volatility.labels").toPandas()
+features_df = spark.table(f"{catalog_name}.implied_volatility.features").toPandas()
+labels_df = spark.table(f"{catalog_name}.implied_volatility.labels").toPandas()
 
 # COMMAND ----------
 
